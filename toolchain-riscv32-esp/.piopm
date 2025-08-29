@@ -1,0 +1,1 @@
+{"type": "tool", "name": "toolchain-riscv32-esp", "version": "14.2.0+20241119", "spec": {"owner": "pioarduino", "id": null, "name": "toolchain-riscv32-esp", "requirements": null, "uri": "https://github.com/pioarduino/registry/releases/download/0.0.1/riscv32-esp-elf-14.2.0_20241119.zip"}}
