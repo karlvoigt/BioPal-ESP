@@ -1,122 +1,179 @@
 #include <Arduino.h>
-// #include "pinDefs.h"
-#include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
+#include <TFT_eSPI.h>
+#include "uart_stm32.h"
+#include "calibration.h"
+#include "impedance_calc.h"
+#include "bode_plot.h"
 
-int cnt = 0;
-#define TFT_GREY 0x5AEB
+// Initialize modules
+TFT_eSPI tft = TFT_eSPI();
+UART_STM32 stm32_uart;
+Calibration calibration;
+ImpedanceCalculator impedance_calc(&calibration);
+BodePlot bode_plot(&tft);
 
-TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
+// State machine
+enum MeasurementState {
+    STATE_INIT,
+    STATE_WAIT_BOOT,
+    STATE_START_MEASUREMENT,
+    STATE_WAIT_RESULTS,
+    STATE_PROCESS_DUT1,
+    STATE_PROCESS_DUT2,
+    STATE_PROCESS_DUT3,
+    STATE_DISPLAY_RESULTS,
+    STATE_IDLE
+};
 
-float sx = 0, sy = 1, mx = 1, my = 0, hx = -1, hy = 0;    // Saved H, M, S x & y multipliers
-float sdeg=0, mdeg=0, hdeg=0;
-uint16_t osx=120, osy=120, omx=120, omy=120, ohx=120, ohy=120;  // Saved H, M, S x & y coords
-uint16_t x0=0, x1=0, yy0=0, yy1=0;
-uint32_t targetTime = 0;                    // for next 1 second timeout
+MeasurementState current_state = STATE_INIT;
+uint32_t state_start_time = 0;
 
-static uint8_t conv2d(const char* p); // Forward declaration needed for IDE 1.6.x
-uint8_t hh=conv2d(__TIME__), mm=conv2d(__TIME__+3), ss=conv2d(__TIME__+6);  // Get H, M, S from compile time
-
-bool initial = 1;
+// DUT results storage
+DUTResults dut_results[3];
+std::vector<ImpedancePoint> dut_impedance[3];
 
 void setup() {
-  // UART setup
-  Serial.begin(115200);          // initialize USB serial
-  while (!Serial) { }            // wait for USB connection
-  Serial.println("Hello from FireBeetle C6!");
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // Initialize serial debug output
+    Serial.begin(115200);
+    while (!Serial) { }
+    Serial.println("\n=== BioPal ESP32 Impedance Analyzer ===");
 
-  tft.init();
-  tft.setRotation(0);
-  
-  //tft.fillScreen(TFT_BLACK);
-  //tft.fillScreen(TFT_RED);
-  //tft.fillScreen(TFT_GREEN);
-  //tft.fillScreen(TFT_BLUE);
-  //tft.fillScreen(TFT_BLACK);
-  tft.fillScreen(TFT_GREY);
-  
-  tft.setTextColor(TFT_WHITE, TFT_GREY);  // Adding a background colour erases previous text automatically
-  
-  // Draw clock face
-  tft.fillCircle(120, 120, 118, TFT_GREEN);
-  tft.fillCircle(120, 120, 110, TFT_BLACK);
+    // Initialize TFT display
+    tft.init();
+    tft.setRotation(0);
+    Serial.println("TFT initialized");
 
-  // Draw 12 lines
-  for(int i = 0; i<360; i+= 30) {
-    sx = cos((i-90)*0.0174532925);
-    sy = sin((i-90)*0.0174532925);
-    x0 = sx*114+120;
-    yy0 = sy*114+120;
-    x1 = sx*100+120;
-    yy1 = sy*100+120;
+    // Initialize Bode plot module
+    if (!bode_plot.begin()) {
+        Serial.println("ERROR: Failed to initialize Bode plot");
+        return;
+    }
+    bode_plot.displayStatus("BioPal Initializing...");
 
-    tft.drawLine(x0, yy0, x1, yy1, TFT_GREEN);
-  }
+    // Initialize UART communication with STM32
+    if (!stm32_uart.begin()) {
+        Serial.println("ERROR: Failed to initialize STM32 UART");
+        bode_plot.displayStatus("UART Init Failed!");
+        return;
+    }
 
-  tft.fillCircle(120, 121, 3, TFT_WHITE);
+    // Initialize calibration module
+    if (!calibration.begin()) {
+        Serial.println("ERROR: Failed to initialize calibration");
+        bode_plot.displayStatus("Calibration Failed!");
+        return;
+    }
 
-  // Draw text at position 120,260 using fonts 4
-  // Only font numbers 2,4,6,7 are valid. Font 6 only contains characters [space] 0 1 2 3 4 5 6 7 8 9 : . - a p m
-  // Font 7 is a 7 segment font and only contains characters [space] 0 1 2 3 4 5 6 7 8 9 : .
-  tft.drawCentreString("Time flies",120,260,4);
+    Serial.println("All modules initialized successfully");
+    bode_plot.displayStatus("Ready!");
 
-  targetTime = millis() + 1000; 
+    // Transition to wait state
+    current_state = STATE_WAIT_BOOT;
+    state_start_time = millis();
+    Serial.println("Waiting 5 seconds before starting measurement...");
 }
 
 void loop() {
-  if (targetTime < millis()) {
-    targetTime += 1000;
-    ss++;              // Advance second
-    if (ss==60) {
-      ss=0;
-      mm++;            // Advance minute
-      if(mm>59) {
-        mm=0;
-        hh++;          // Advance hour
-        if (hh>23) {
-          hh=0;
-        }
-      }
+    uint32_t current_time = millis();
+
+    switch (current_state) {
+        case STATE_INIT:
+            // Should never reach here after setup
+            break;
+
+        case STATE_WAIT_BOOT:
+            // Wait 5 seconds after boot before starting measurement
+            if (current_time - state_start_time >= 5000) {
+                Serial.println("5 second wait complete, starting measurement cycle");
+                current_state = STATE_START_MEASUREMENT;
+            }
+            break;
+
+        case STATE_START_MEASUREMENT:
+            Serial.println("\n=== Starting Measurement Cycle ===");
+            bode_plot.displayStatus("Measuring...");
+
+            // Send START_MEASUREMENT command to STM32
+            stm32_uart.sendStartMeasurement();
+
+            current_state = STATE_WAIT_RESULTS;
+            state_start_time = current_time;
+            Serial.println("Waiting for measurement to complete...");
+            break;
+
+        case STATE_WAIT_RESULTS:
+            // Wait briefly before starting to receive
+            if (current_time - state_start_time > 1000) {
+                Serial.println("Starting binary data reception...");
+                current_state = STATE_PROCESS_DUT1;
+            }
+            break;
+
+        case STATE_PROCESS_DUT1:
+            Serial.println("Processing DUT 1...");
+            if (stm32_uart.receiveDUTResults(1, dut_results[0])) {
+                if (impedance_calc.calculateImpedance(dut_results[0], dut_impedance[0])) {
+                    Serial.println("DUT 1 impedance calculated successfully");
+                    impedance_calc.printImpedance();
+                }
+                current_state = STATE_PROCESS_DUT2;
+            } else {
+                Serial.println("ERROR: Failed to receive DUT 1 results");
+                bode_plot.displayStatus("DUT 1 Timeout!");
+                current_state = STATE_IDLE;
+            }
+            break;
+
+        case STATE_PROCESS_DUT2:
+            Serial.println("Processing DUT 2...");
+            if (stm32_uart.receiveDUTResults(2, dut_results[1])) {
+                if (impedance_calc.calculateImpedance(dut_results[1], dut_impedance[1])) {
+                    Serial.println("DUT 2 impedance calculated successfully");
+                    impedance_calc.printImpedance();
+                }
+                current_state = STATE_PROCESS_DUT3;
+            } else {
+                Serial.println("ERROR: Failed to receive DUT 2 results");
+                bode_plot.displayStatus("DUT 2 Timeout!");
+                current_state = STATE_IDLE;
+            }
+            break;
+
+        case STATE_PROCESS_DUT3:
+            Serial.println("Processing DUT 3...");
+            if (stm32_uart.receiveDUTResults(3, dut_results[2])) {
+                if (impedance_calc.calculateImpedance(dut_results[2], dut_impedance[2])) {
+                    Serial.println("DUT 3 impedance calculated successfully");
+                    impedance_calc.printImpedance();
+                }
+                current_state = STATE_DISPLAY_RESULTS;
+            } else {
+                Serial.println("ERROR: Failed to receive DUT 3 results");
+                bode_plot.displayStatus("DUT 3 Timeout!");
+                current_state = STATE_IDLE;
+            }
+            break;
+
+        case STATE_DISPLAY_RESULTS:
+            Serial.println("\n=== Displaying Results ===");
+
+            // Display DUT 1 results (or cycle through all 3 DUTs)
+            // For now, just display DUT 1
+            if (dut_impedance[0].size() > 0) {
+                bode_plot.plotImpedance(dut_impedance[0], 1);
+                Serial.println("DUT 1 Bode plot displayed");
+            } else {
+                bode_plot.displayStatus("No Valid Data");
+            }
+
+            current_state = STATE_IDLE;
+            Serial.println("Measurement cycle complete");
+            break;
+
+        case STATE_IDLE:
+            // Stay in idle state
+            // Could add button press to restart measurement here
+            delay(100);
+            break;
     }
-
-    // Pre-compute hand degrees, x & y coords for a fast screen update
-    sdeg = ss*6;                  // 0-59 -> 0-354
-    mdeg = mm*6+sdeg*0.01666667;  // 0-59 -> 0-360 - includes seconds
-    hdeg = hh*30+mdeg*0.0833333;  // 0-11 -> 0-360 - includes minutes and seconds
-    hx = cos((hdeg-90)*0.0174532925);    
-    hy = sin((hdeg-90)*0.0174532925);
-    mx = cos((mdeg-90)*0.0174532925);    
-    my = sin((mdeg-90)*0.0174532925);
-    sx = cos((sdeg-90)*0.0174532925);    
-    sy = sin((sdeg-90)*0.0174532925);
-
-    if (ss==0 || initial) {
-      initial = 0;
-      // Erase hour and minute hand positions every minute
-      tft.drawLine(ohx, ohy, 120, 121, TFT_BLACK);
-      ohx = hx*62+121;    
-      ohy = hy*62+121;
-      tft.drawLine(omx, omy, 120, 121, TFT_BLACK);
-      omx = mx*84+120;    
-      omy = my*84+121;
-    }
-
-      // Redraw new hand positions, hour and minute hands not erased here to avoid flicker
-      tft.drawLine(osx, osy, 120, 121, TFT_BLACK);
-      osx = sx*90+121;    
-      osy = sy*90+121;
-      tft.drawLine(osx, osy, 120, 121, TFT_RED);
-      tft.drawLine(ohx, ohy, 120, 121, TFT_WHITE);
-      tft.drawLine(omx, omy, 120, 121, TFT_WHITE);
-      tft.drawLine(osx, osy, 120, 121, TFT_RED);
-
-    tft.fillCircle(120, 121, 3, TFT_RED);
-  }
-}
-
-static uint8_t conv2d(const char* p) {
-  uint8_t v = 0;
-  if ('0' <= *p && *p <= '9')
-    v = *p - '0';
-  return 10 * v + *++p - '0';
 }
