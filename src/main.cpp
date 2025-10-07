@@ -52,6 +52,15 @@ void setup() {
 
     tft.drawLine(x0, yy0, x1, yy1, TFT_GREEN);
   }
+
+  tft.fillCircle(120, 121, 3, TFT_WHITE);
+
+  // Draw text at position 120,260 using fonts 4
+  // Only font numbers 2,4,6,7 are valid. Font 6 only contains characters [space] 0 1 2 3 4 5 6 7 8 9 : . - a p m
+  // Font 7 is a 7 segment font and only contains characters [space] 0 1 2 3 4 5 6 7 8 9 : .
+  tft.drawCentreString("Time flies",120,260,4);
+
+  targetTime = millis() + 1000; 
 }
 
 void loop() {
