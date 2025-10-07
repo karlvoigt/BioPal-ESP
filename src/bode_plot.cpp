@@ -1,5 +1,6 @@
 #include "bode_plot.h"
 #include <math.h>
+#include <cfloat>
 
 BodePlot::BodePlot(TFT_eSPI* display) : tft(display) {
 }
