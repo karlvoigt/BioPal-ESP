@@ -141,8 +141,13 @@ void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data
 }
 
 void sendStartCommand() {
-    Serial.println("Sending START command to STM32");
-    sendCommand(CMD_START_MEASUREMENT, 0, 0, 0);
+    Serial.println("Sending START command to STM32 (4 DUTs)");
+    sendCommand(CMD_START_MEASUREMENT, 4, 0, 0);  // Default to 4 DUTs
+}
+
+void sendStartCommand(uint8_t num_duts) {
+    Serial.printf("Sending START command to STM32 (%d DUT%s)\n", num_duts, num_duts > 1 ? "s" : "");
+    sendCommand(CMD_START_MEASUREMENT, num_duts, 0, 0);
 }
 
 void sendStopCommand() {
@@ -158,6 +163,11 @@ void sendSetPGAGainCommand(uint8_t gain) {
 void sendSetMuxChannelCommand(uint8_t channel) {
     Serial.printf("Sending SET_MUX_CHANNEL command: %d\n", channel);
     sendCommand(CMD_SET_MUX_CHANNEL, channel, 0, 0);
+}
+
+void sendSetTIAGainCommand(uint8_t low_gain) {
+    Serial.printf("Sending SET_TIA_GAIN command: %s\n", low_gain ? "LOW" : "HIGH");
+    sendCommand(CMD_SET_TIA_GAIN, low_gain, 0, 0);
 }
 
 /*=========================HELPER FUNCTIONS=========================*/

@@ -23,6 +23,7 @@
 #define CMD_SET_MUX_CHANNEL     0x02
 #define CMD_START_MEASUREMENT   0x03
 #define CMD_END_MEASUREMENT     0x04
+#define CMD_SET_TIA_GAIN        0x05
 
 // Data packet protocol (matching STM32)
 #define UART_DATA_START_BYTE    0xAA
@@ -75,8 +76,11 @@ SemaphoreHandle_t getUARTSemaphore();
 void processBufferedBytes();
 
 /*=========================COMMAND SENDING=========================*/
-// Send start measurement command to STM32
+// Send start measurement command to STM32 (default 4 DUTs)
 void sendStartCommand();
+
+// Send start measurement command with specific number of DUTs (1-4)
+void sendStartCommand(uint8_t num_duts);
 
 // Send stop measurement command to STM32
 void sendStopCommand();
@@ -86,6 +90,9 @@ void sendSetPGAGainCommand(uint8_t gain);
 
 // Send set MUX channel command
 void sendSetMuxChannelCommand(uint8_t channel);
+
+// Send set TIA gain command (0 = high gain, 1 = low gain)
+void sendSetTIAGainCommand(uint8_t low_gain);
 
 // Generic command sender
 void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3);
