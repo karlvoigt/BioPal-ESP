@@ -11,12 +11,13 @@
 // UART configuration
 #define UART_RX_PIN         2
 #define UART_TX_PIN         3
-#define UART_BAUD_RATE      115200
+#define UART_BAUD_RATE      3600
 
 // Command protocol (matching STM32)
 #define UART_CMD_START_BYTE     0xAA
 #define UART_CMD_END_BYTE       0x55
 #define UART_CMD_PACKET_SIZE    15
+#define UART_ACK_PACKET_SIZE    4
 
 // Command types
 #define CMD_SET_PGA_GAIN        0x01
@@ -97,11 +98,28 @@ void sendSetTIAGainCommand(uint8_t low_gain);
 // Generic command sender
 void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3);
 
+// Wait for ACK packet from STM32 for a specific command
+// Returns true if ACK received within timeout, false otherwise
+bool waitForAck(uint8_t cmd_type, uint32_t timeout_ms);
+
 /*=========================PACKET RECEIVING=========================*/
 // Process incoming UART data (call from UART ISR or task)
 void processIncomingByte(uint8_t byte);
 
 // Get current DUT being processed
 uint8_t getCurrentDUT();
+
+/*=========================EVENT SIGNALING=========================*/
+// Get semaphore signaled when a DUT completes (DUT_END packet received)
+// GUI task can wait on this to trigger Bode plot drawing
+SemaphoreHandle_t getDUTCompleteSemaphore();
+
+// Get semaphore signaled when all measurements complete
+// GUI task can wait on this to trigger CSV export
+SemaphoreHandle_t getMeasurementCompleteSemaphore();
+
+// Get the DUT index that just completed (0-3 for DUT 1-4)
+// Call after getDUTCompleteSemaphore() signals
+uint8_t getCompletedDUTIndex();
 
 #endif // UART_FUNCTIONS_H

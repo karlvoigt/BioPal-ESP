@@ -6,6 +6,8 @@
 #include "UART_Functions.h"
 #include "calibration.h"
 #include "impedance_calc.h"
+#include "bode_plot.h"
+#include "csv_export.h"
 
 /*=========================GLOBAL VARIABLES=========================*/
 // Initialize global impedance data arrays
@@ -81,18 +83,50 @@ void taskDataProcessor(void* parameter) {
 void taskGUI(void* parameter) {
     Serial.println("GUI task started");
 
+    // Initialize TFT display
+    initBodePlot();
+    Serial.println("TFT display initialized");
+
     // Wait a bit for system to stabilize
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     // Send start command to STM32
-    sendStartCommand();
+    sendStartCommand(1);  // Default 4 DUTs
     Serial.println("Start command sent to STM32");
 
-    // Main GUI loop
+    // Get semaphore handles
+    SemaphoreHandle_t dutCompleteSem = getDUTCompleteSemaphore();
+    SemaphoreHandle_t measurementCompleteSem = getMeasurementCompleteSemaphore();
+
+    bool allMeasurementsComplete = false;
+
+    // Main GUI event loop
     while (true) {
-        // TODO: Implement TFT display updates and button handling
-        // For now, just delay
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // Wait for DUT completion event (10 second timeout)
+        if (xSemaphoreTake(dutCompleteSem, pdMS_TO_TICKS(10000)) == pdTRUE) {
+            // DUT just completed - draw Bode plot
+            uint8_t dutIndex = getCompletedDUTIndex();
+            Serial.printf("Drawing Bode plot for completed DUT %d...\n", dutIndex + 1);
+            drawBodePlot(dutIndex);
+
+            // Check if all measurements are complete
+            if (xSemaphoreTake(measurementCompleteSem, 0) == pdTRUE) {
+                allMeasurementsComplete = true;
+            }
+        }
+
+        // If all measurements complete, export CSV
+        if (allMeasurementsComplete) {
+            Serial.println("All measurements complete - exporting CSV data");
+            printCSVToSerial();
+            allMeasurementsComplete = false;  // Reset flag
+
+            // Could add button handling here to restart measurements
+            // For now, just wait
+        }
+
+        // Small delay to prevent task starvation
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 

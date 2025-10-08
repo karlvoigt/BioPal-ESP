@@ -9,6 +9,15 @@ static QueueHandle_t measurementQueueHandle = nullptr;
 // Semaphore for signaling when data is received
 static SemaphoreHandle_t uartDataSemaphore = nullptr;
 
+// Semaphores for event signaling to GUI task
+static SemaphoreHandle_t dutCompleteSemaphore = nullptr;
+static SemaphoreHandle_t measurementCompleteSemaphore = nullptr;
+
+// DUT completion tracking
+static uint8_t completedDUTIndex = 0;
+static uint8_t totalExpectedDUTs = 4;  // Default to 4, updated on START command
+static uint8_t completedDUTCount = 0;
+
 // Circular buffer for ISR byte collection
 #define CIRC_BUFFER_SIZE 512
 static uint8_t circBuffer[CIRC_BUFFER_SIZE];
@@ -17,6 +26,10 @@ static volatile uint16_t circBufferTail = 0;
 
 // Receiver context (used by processing task, not ISR)
 static UARTRxContext rxContext;
+
+// ACK reception tracking
+static volatile bool ackReceived = false;
+static volatile uint8_t ackCmdType = 0;
 
 /*=========================CIRCULAR BUFFER HELPERS=========================*/
 
@@ -71,10 +84,12 @@ void IRAM_ATTR onUARTReceive() {
 void initUART(QueueHandle_t measurementQueue) {
     measurementQueueHandle = measurementQueue;
 
-    // Create semaphore for signaling
+    // Create semaphores for signaling
     uartDataSemaphore = xSemaphoreCreateBinary();
+    dutCompleteSemaphore = xSemaphoreCreateBinary();
+    measurementCompleteSemaphore = xSemaphoreCreateBinary();
 
-    // Initialize UART with 115200 baud on pins 2 (RX) and 3 (TX)
+    // Initialize UART with 3600 baud on pins 2 (RX) and 3 (TX)
     UARTSerial.begin(UART_BAUD_RATE, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 
     // Attach interrupt callback for received data
@@ -142,17 +157,63 @@ void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data
 
 void sendStartCommand() {
     Serial.println("Sending START command to STM32 (4 DUTs)");
-    sendCommand(CMD_START_MEASUREMENT, 4, 0, 0);  // Default to 4 DUTs
+    totalExpectedDUTs = 4;
+    completedDUTCount = 0;
+
+    // Retry up to 3 times if no ACK
+    for (int attempt = 0; attempt < 3; attempt++) {
+        sendCommand(CMD_START_MEASUREMENT, 4, 0, 0);
+
+        if (waitForAck(CMD_START_MEASUREMENT, 1000)) {
+            Serial.println("START command acknowledged");
+            return;  // Success
+        }
+
+        Serial.printf("Retry %d/3...\n", attempt + 1);
+        delay(100);  // Wait before retry
+    }
+
+    Serial.println("ERROR: START command failed after 3 attempts");
 }
 
 void sendStartCommand(uint8_t num_duts) {
     Serial.printf("Sending START command to STM32 (%d DUT%s)\n", num_duts, num_duts > 1 ? "s" : "");
-    sendCommand(CMD_START_MEASUREMENT, num_duts, 0, 0);
+    totalExpectedDUTs = num_duts;
+    completedDUTCount = 0;  // Reset counter
+
+    // Retry up to 3 times if no ACK
+    for (int attempt = 0; attempt < 3; attempt++) {
+        sendCommand(CMD_START_MEASUREMENT, num_duts, 0, 0);
+
+        if (waitForAck(CMD_START_MEASUREMENT, 1000)) {
+            Serial.println("START command acknowledged");
+            return;  // Success
+        }
+
+        Serial.printf("Retry %d/3...\n", attempt + 1);
+        delay(100);  // Wait before retry
+    }
+
+    Serial.println("ERROR: START command failed after 3 attempts");
 }
 
 void sendStopCommand() {
     Serial.println("Sending STOP command to STM32");
-    sendCommand(CMD_END_MEASUREMENT, 0, 0, 0);
+
+    // Retry up to 3 times if no ACK
+    for (int attempt = 0; attempt < 3; attempt++) {
+        sendCommand(CMD_END_MEASUREMENT, 0, 0, 0);
+
+        if (waitForAck(CMD_END_MEASUREMENT, 1000)) {
+            Serial.println("STOP command acknowledged");
+            return;  // Success
+        }
+
+        Serial.printf("Retry %d/3...\n", attempt + 1);
+        delay(100);  // Wait before retry
+    }
+
+    Serial.println("ERROR: STOP command failed after 3 attempts");
 }
 
 void sendSetPGAGainCommand(uint8_t gain) {
@@ -249,8 +310,14 @@ void processIncomingByte(uint8_t byte) {
             rxContext.packetType = byte;
             rxContext.byteCount = 2;
 
-            // Determine packet type and expected size
-            if (byte == UART_DATA_DUT_START) {
+            // Check if this might be an ACK packet (cmd_type 0x01-0x05)
+            if (byte >= CMD_SET_PGA_GAIN && byte <= CMD_SET_TIA_GAIN) {
+                // Could be ACK packet - need to read next 2 bytes to confirm
+                rxContext.expectedBytes = UART_ACK_PACKET_SIZE;
+                rxContext.state = READING_DUT_START;  // Reuse state for ACK reading
+            }
+            // Determine data packet type and expected size
+            else if (byte == UART_DATA_DUT_START) {
                 rxContext.expectedBytes = UART_DATA_DUT_START_SIZE;
                 rxContext.state = READING_DUT_START;
             } else if (byte == UART_DATA_FREQUENCY) {
@@ -277,8 +344,18 @@ void processIncomingByte(uint8_t byte) {
             if (rxContext.byteCount >= rxContext.expectedBytes) {
                 // Validate end byte
                 if (rxContext.buffer[rxContext.byteCount - 1] == UART_DATA_END_BYTE) {
-                    // Process complete packet
-                    if (rxContext.packetType == UART_DATA_DUT_START) {
+                    // Check if this is an ACK packet (4 bytes, third byte is 0x01, packet type is a command)
+                    if (rxContext.expectedBytes == UART_ACK_PACKET_SIZE &&
+                        rxContext.buffer[2] == 0x01 &&
+                        rxContext.packetType >= CMD_SET_PGA_GAIN &&
+                        rxContext.packetType <= CMD_SET_TIA_GAIN) {
+                        // ACK packet received
+                        ackCmdType = rxContext.packetType;
+                        ackReceived = true;
+                        Serial.printf("ACK received for command 0x%02X\n", ackCmdType);
+                    }
+                    // Process data packets
+                    else if (rxContext.packetType == UART_DATA_DUT_START) {
                         rxContext.currentDUT = rxContext.buffer[2];
                         rxContext.expectedFreqCount = rxContext.buffer[3];
                         Serial.printf("\n=== DUT %d START (expecting %d frequencies) ===\n",
@@ -288,7 +365,24 @@ void processIncomingByte(uint8_t byte) {
                         parseFrequencyPacket();
                     }
                     else if (rxContext.packetType == UART_DATA_DUT_END) {
-                        Serial.printf("=== DUT %d END ===\n\n", rxContext.buffer[2]);
+                        uint8_t dutNum = rxContext.buffer[2];
+                        Serial.printf("=== DUT %d END ===\n\n", dutNum);
+
+                        // Signal GUI task that DUT is complete
+                        completedDUTIndex = dutNum - 1;  // Convert 1-4 to 0-3
+                        completedDUTCount++;
+
+                        if (dutCompleteSemaphore != nullptr) {
+                            xSemaphoreGive(dutCompleteSemaphore);
+                        }
+
+                        // Check if all DUTs complete
+                        if (completedDUTCount >= totalExpectedDUTs) {
+                            Serial.println("=== ALL MEASUREMENTS COMPLETE ===");
+                            if (measurementCompleteSemaphore != nullptr) {
+                                xSemaphoreGive(measurementCompleteSemaphore);
+                            }
+                        }
                     }
                 } else {
                     Serial.printf("Invalid end byte: 0x%02X\n",
@@ -305,4 +399,41 @@ void processIncomingByte(uint8_t byte) {
 
 uint8_t getCurrentDUT() {
     return rxContext.currentDUT;
+}
+
+/*=========================ACK HANDLING=========================*/
+
+bool waitForAck(uint8_t cmd_type, uint32_t timeout_ms) {
+    // Reset ACK flags
+    ackReceived = false;
+    ackCmdType = 0;
+
+    uint32_t startTime = millis();
+
+    // Wait for ACK or timeout
+    while (millis() - startTime < timeout_ms) {
+        if (ackReceived && ackCmdType == cmd_type) {
+            ackReceived = false;  // Reset flag
+            return true;
+        }
+        delay(1);  // Small delay to prevent tight loop
+    }
+
+    // Timeout - no ACK received
+    Serial.printf("WARNING: No ACK received for command 0x%02X\n", cmd_type);
+    return false;
+}
+
+/*=========================EVENT SIGNALING=========================*/
+
+SemaphoreHandle_t getDUTCompleteSemaphore() {
+    return dutCompleteSemaphore;
+}
+
+SemaphoreHandle_t getMeasurementCompleteSemaphore() {
+    return measurementCompleteSemaphore;
+}
+
+uint8_t getCompletedDUTIndex() {
+    return completedDUTIndex;
 }
