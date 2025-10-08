@@ -1,166 +1,130 @@
 #include "calibration.h"
-#include <math.h>
+#include <LittleFS.h>
 
-// Calibration table - to be populated with actual calibration data
-// Format: {frequency_hz, voltage_gain_V_per_V, current_gain_V_per_mA, phase_shift_deg}
-static const CalibrationPoint calibration_table[] = {
-    // TODO: Replace with actual calibration data from calibration_tool.py
-    {        1, 1.0f, 1.0f, 0.0f},
-    {        2, 1.0f, 1.0f, 0.0f},
-    {        4, 1.0f, 1.0f, 0.0f},
-    {        5, 1.0f, 1.0f, 0.0f},
-    {        8, 1.0f, 1.0f, 0.0f},
-    {       10, 1.0f, 1.0f, 0.0f},
-    {       16, 1.0f, 1.0f, 0.0f},
-    {       20, 1.0f, 1.0f, 0.0f},
-    {       25, 1.0f, 1.0f, 0.0f},
-    {       32, 1.0f, 1.0f, 0.0f},
-    {       40, 1.0f, 1.0f, 0.0f},
-    {       50, 1.0f, 1.0f, 0.0f},
-    {       80, 1.0f, 1.0f, 0.0f},
-    {      100, 1.0f, 1.0f, 0.0f},
-    {      125, 1.0f, 1.0f, 0.0f},
-    {      160, 1.0f, 1.0f, 0.0f},
-    {      200, 1.0f, 1.0f, 0.0f},
-    {      250, 1.0f, 1.0f, 0.0f},
-    {      400, 1.0f, 1.0f, 0.0f},
-    {      500, 1.0f, 1.0f, 0.0f},
-    {      625, 1.0f, 1.0f, 0.0f},
-    {      800, 1.0f, 1.0f, 0.0f},
-    {     1000, 1.0f, 1.0f, 0.0f},
-    {     1250, 1.0f, 1.0f, 0.0f},
-    {     2000, 1.0f, 1.0f, 0.0f},
-    {     2500, 1.0f, 1.0f, 0.0f},
-    {     3125, 1.0f, 1.0f, 0.0f},
-    {     4000, 1.0f, 1.0f, 0.0f},
-    {     5000, 1.0f, 1.0f, 0.0f},
-    {     6250, 1.0f, 1.0f, 0.0f},
-    {    10000, 1.0f, 1.0f, 0.0f},
-    {    12500, 1.0f, 1.0f, 0.0f},
-    {    15625, 1.0f, 1.0f, 0.0f},
-    {    25000, 1.0f, 1.0f, 0.0f},
-    {    50000, 1.0f, 1.0f, 0.0f},
-    {    62500, 1.0f, 1.0f, 0.0f},
-    {    80000, 1.0f, 1.0f, 0.0f},
-    {   100000, 1.0f, 1.0f, 0.0f},
-};
+/*=========================GLOBAL VARIABLES=========================*/
+FreqCalibrationData calibrationData[MAX_CAL_FREQUENCIES];
+int numCalibrationFreqs = 0;
 
-static const uint8_t calibration_table_size = sizeof(calibration_table) / sizeof(CalibrationPoint);
+/*=========================HELPER FUNCTIONS=========================*/
 
-Calibration::Calibration() {
-}
-
-bool Calibration::begin() {
-    Serial.printf("Calibration: Loaded %d frequency points\n", calibration_table_size);
-    return true;
-}
-
-uint8_t Calibration::getCalibrationCount() {
-    return calibration_table_size;
-}
-
-float Calibration::interpolate(float x, float x1, float y1, float x2, float y2) {
-    if (x2 == x1) return y1;
-    return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
-}
-
-bool Calibration::findBracketingPoints(uint32_t freq_hz, uint8_t& lower_idx, uint8_t& upper_idx) {
-    // Handle edge cases
-    if (freq_hz <= calibration_table[0].frequency_hz) {
-        lower_idx = 0;
-        upper_idx = 0;
-        return true;
-    }
-
-    if (freq_hz >= calibration_table[calibration_table_size - 1].frequency_hz) {
-        lower_idx = calibration_table_size - 1;
-        upper_idx = calibration_table_size - 1;
-        return true;
-    }
-
-    // Find bracketing points
-    for (uint8_t i = 0; i < calibration_table_size - 1; i++) {
-        if (freq_hz >= calibration_table[i].frequency_hz &&
-            freq_hz <= calibration_table[i + 1].frequency_hz) {
-            lower_idx = i;
-            upper_idx = i + 1;
-            return true;
+// Find the index of a frequency in the calibration data
+int findFrequencyIndex(uint32_t freq) {
+    for(int i = 0; i < numCalibrationFreqs; i++) {
+        if(calibrationData[i].frequency_hz == freq) {
+            return i;
         }
     }
-
-    return false;
+    return -1;
 }
 
-bool Calibration::getCalibration(uint32_t freq_hz, float& voltage_gain, float& current_gain, float& phase_shift) {
-    uint8_t lower_idx, upper_idx;
+// Get calibration point for specific frequency and gain settings
+CalibrationPoint* getCalibrationPoint(uint32_t freq, bool highTIA, uint8_t pgaGain) {
+    if(pgaGain > 7) return nullptr;
 
-    if (!findBracketingPoints(freq_hz, lower_idx, upper_idx)) {
-        Serial.printf("Calibration: Failed to find bracketing points for %lu Hz\n", freq_hz);
+    int idx = findFrequencyIndex(freq);
+    if(idx < 0) return nullptr;
+
+    if(highTIA) {
+        return &calibrationData[idx].high_TIA_gains[pgaGain];
+    } else {
+        return &calibrationData[idx].low_TIA_gains[pgaGain];
+    }
+}
+
+/*=========================FILE LOADING FUNCTIONS=========================*/
+
+// Load calibration data from filesystem
+// CSV Format: freq,tia_mode,pga_gain,v_gain,i_gain,phase
+// tia_mode: 0=low, 1=high
+// pga_gain: 0-7
+bool loadCalibrationData() {
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS");
         return false;
     }
 
-    // Exact match or edge case
-    if (lower_idx == upper_idx) {
-        voltage_gain = calibration_table[lower_idx].voltage_gain;
-        current_gain = calibration_table[lower_idx].current_gain;
-        phase_shift = calibration_table[lower_idx].phase_shift_deg;
-        return true;
+    // Open calibration file
+    File file = LittleFS.open("/calibration.csv", "r");
+    if(!file) {
+        Serial.println("Failed to open calibration.csv");
+        LittleFS.end();
+        return false;
     }
 
-    // Linear interpolation on log scale for frequency-dependent gains
-    float log_freq = log10f((float)freq_hz);
-    float log_f1 = log10f((float)calibration_table[lower_idx].frequency_hz);
-    float log_f2 = log10f((float)calibration_table[upper_idx].frequency_hz);
+    numCalibrationFreqs = 0;
+    int currentFreqIdx = -1;
+    uint32_t lastFreq = 0;
 
-    voltage_gain = interpolate(log_freq, log_f1,
-                               calibration_table[lower_idx].voltage_gain,
-                               log_f2,
-                               calibration_table[upper_idx].voltage_gain);
+    // Read file line by line
+    while(file.available() && numCalibrationFreqs < MAX_CAL_FREQUENCIES) {
+        String line = file.readStringUntil('\n');
+        line.trim();
 
-    current_gain = interpolate(log_freq, log_f1,
-                               calibration_table[lower_idx].current_gain,
-                               log_f2,
-                               calibration_table[upper_idx].current_gain);
+        // Skip empty lines and comments
+        if(line.length() == 0 || line.startsWith("#")) {
+            continue;
+        }
 
-    phase_shift = interpolate(log_freq, log_f1,
-                              calibration_table[lower_idx].phase_shift_deg,
-                              log_f2,
-                              calibration_table[upper_idx].phase_shift_deg);
+        // Parse CSV line: freq,tia_mode,pga_gain,v_gain,i_gain,phase
+        uint32_t freq = 0;
+        int tia_mode = 0;
+        int pga_gain = 0;
+        float v_gain = 1.0;
+        float i_gain = 1.0;
+        float phase = 0.0;
 
+        int fieldCount = sscanf(line.c_str(), "%lu,%d,%d,%f,%f,%f",
+                                &freq, &tia_mode, &pga_gain, &v_gain, &i_gain, &phase);
+
+        if(fieldCount != 6) {
+            Serial.printf("Invalid line: %s\n", line.c_str());
+            continue;
+        }
+
+        // Validate ranges
+        if(tia_mode < 0 || tia_mode > 1 || pga_gain < 0 || pga_gain > 7) {
+            Serial.printf("Invalid TIA mode or PGA gain: %s\n", line.c_str());
+            continue;
+        }
+
+        // Check if this is a new frequency
+        if(freq != lastFreq) {
+            currentFreqIdx = findFrequencyIndex(freq);
+            if(currentFreqIdx < 0) {
+                // New frequency, add it
+                currentFreqIdx = numCalibrationFreqs;
+                calibrationData[currentFreqIdx].frequency_hz = freq;
+                numCalibrationFreqs++;
+                lastFreq = freq;
+            }
+        }
+
+        // Store calibration point
+        CalibrationPoint point(v_gain, i_gain, phase);
+        if(tia_mode == 0) {
+            calibrationData[currentFreqIdx].low_TIA_gains[pga_gain] = point;
+        } else {
+            calibrationData[currentFreqIdx].high_TIA_gains[pga_gain] = point;
+        }
+    }
+
+    file.close();
+    LittleFS.end();
+
+    Serial.printf("Loaded calibration data for %d frequencies\n", numCalibrationFreqs);
     return true;
 }
 
-void Calibration::applyCalibration(uint32_t freq_hz, float& voltage, float& current, float& phase) {
-    float voltage_gain, current_gain, phase_shift;
-
-    if (getCalibration(freq_hz, voltage_gain, current_gain, phase_shift)) {
-        // Apply gain corrections
-        voltage = voltage / voltage_gain;
-        current = current / current_gain;
-
-        // Apply phase shift compensation
-        phase = phase - phase_shift;
-
-        // Normalize phase to [-180, 180]
-        while (phase > 180.0f) phase -= 360.0f;
-        while (phase < -180.0f) phase += 360.0f;
+bool calibrate(MeasurementPoint& point) {
+    CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
+    if(calPoint) {
+        // Apply calibration
+        point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
+        point.I_magnitude = point.I_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->current_gain;
+        point.phase_deg -= calPoint->phase_offset;
+        return true;
     } else {
-        Serial.printf("Calibration: Failed to calibrate %lu Hz\n", freq_hz);
+        return false; // Calibration point not found
     }
-}
-
-void Calibration::printCalibrationTable() {
-    Serial.println("\n=== CALIBRATION TABLE ===");
-    Serial.println("Freq(Hz) | V_Gain | I_Gain | Phase(deg)");
-    Serial.println("---------|--------|--------|----------");
-
-    for (uint8_t i = 0; i < calibration_table_size; i++) {
-        const CalibrationPoint* point = &calibration_table[i];
-        Serial.printf("%8lu | %6.3f | %6.3f | %6.2f\n",
-                      point->frequency_hz,
-                      point->voltage_gain,
-                      point->current_gain,
-                      point->phase_shift_deg);
-    }
-    Serial.println();
 }
