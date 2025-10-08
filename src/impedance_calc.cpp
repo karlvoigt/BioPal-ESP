@@ -15,7 +15,7 @@ ImpedancePoint calcImpedance(MeasurementPoint measPoint) {
 
     result.freq_hz = measPoint.freq_hz;
     result.valid = measPoint.valid;
-    result.Z_magnitude = measPoint.V_magnitude / measPoint.I_magnitude * 1000; // |Z| = V/I (I in mA)
+    result.Z_magnitude = measPoint.V_magnitude / measPoint.I_magnitude; // |Z| = V/I
     result.Z_phase = measPoint.phase_deg; // Phase angle already in degrees
 
 
