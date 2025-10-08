@@ -1,0 +1,100 @@
+#ifndef UART_FUNCTIONS_H
+#define UART_FUNCTIONS_H
+
+#include <Arduino.h>
+#include <HardwareSerial.h>
+#include "defines.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+
+// UART configuration
+#define UART_RX_PIN         2
+#define UART_TX_PIN         3
+#define UART_BAUD_RATE      115200
+
+// Command protocol (matching STM32)
+#define UART_CMD_START_BYTE     0xAA
+#define UART_CMD_END_BYTE       0x55
+#define UART_CMD_PACKET_SIZE    15
+
+// Command types
+#define CMD_SET_PGA_GAIN        0x01
+#define CMD_SET_MUX_CHANNEL     0x02
+#define CMD_START_MEASUREMENT   0x03
+#define CMD_END_MEASUREMENT     0x04
+
+// Data packet protocol (matching STM32)
+#define UART_DATA_START_BYTE    0xAA
+#define UART_DATA_END_BYTE      0x55
+
+// Packet types
+#define UART_DATA_DUT_START     0x10
+#define UART_DATA_FREQUENCY     0x11
+#define UART_DATA_DUT_END       0x12
+
+// Packet sizes
+#define UART_DATA_DUT_START_SIZE    7
+#define UART_DATA_FREQUENCY_SIZE    26
+#define UART_DATA_DUT_END_SIZE      4
+
+// Receive state machine states
+enum UARTRxState {
+    WAITING_START,
+    READING_PACKET_TYPE,
+    READING_DUT_START,
+    READING_FREQUENCY,
+    READING_DUT_END,
+    VALIDATING_END
+};
+
+// UART receiver context
+struct UARTRxContext {
+    UARTRxState state;
+    uint8_t buffer[32];
+    uint8_t byteCount;
+    uint8_t expectedBytes;
+    uint8_t packetType;
+    uint8_t currentDUT;
+    uint8_t expectedFreqCount;
+};
+
+/*=========================INITIALIZATION=========================*/
+// Initialize UART communication with STM32 using Arduino HardwareSerial
+// Sets up interrupt-driven reception using onReceive() callback
+// measurementQueue: FreeRTOS queue for parsed MeasurementPoints
+void initUART(QueueHandle_t measurementQueue);
+
+// Get semaphore handle for signaling when new data received
+// Task can wait on this semaphore instead of polling
+SemaphoreHandle_t getUARTSemaphore();
+
+// Process buffered bytes from ISR circular buffer
+// Call this from a task (not ISR) after semaphore is signaled
+// Processes all available bytes through state machine
+void processBufferedBytes();
+
+/*=========================COMMAND SENDING=========================*/
+// Send start measurement command to STM32
+void sendStartCommand();
+
+// Send stop measurement command to STM32
+void sendStopCommand();
+
+// Send set PGA gain command
+void sendSetPGAGainCommand(uint8_t gain);
+
+// Send set MUX channel command
+void sendSetMuxChannelCommand(uint8_t channel);
+
+// Generic command sender
+void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3);
+
+/*=========================PACKET RECEIVING=========================*/
+// Process incoming UART data (call from UART ISR or task)
+void processIncomingByte(uint8_t byte);
+
+// Get current DUT being processed
+uint8_t getCurrentDUT();
+
+#endif // UART_FUNCTIONS_H

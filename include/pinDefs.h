@@ -10,4 +10,7 @@
 // #define LCD_RST 19
 // #define LCD_BL  18
 
+#define BTN_LEFT  16
+#define BTN_RIGHT 17
+
 #endif // PIN_DEFS_H
