@@ -151,15 +151,18 @@ void drawBodePlot(uint8_t dutIndex) {
         if (point->Z_phase > phase_max) phase_max = point->Z_phase;
     }
 
-    // Add 10% padding to ranges
-    float freq_range = freq_max / freq_min;  // Log range is multiplicative
-    freq_min /= powf(freq_range, 0.05f);
-    freq_max *= powf(freq_range, 0.05f);
+    // Round to nice power-of-10 boundaries for log scales
+    int freq_min_exp = (int)floorf(log10f(freq_min));
+    int freq_max_exp = (int)ceilf(log10f(freq_max));
+    freq_min = powf(10.0f, freq_min_exp);
+    freq_max = powf(10.0f, freq_max_exp);
 
-    float mag_range = mag_max / mag_min;
-    mag_min /= powf(mag_range, 0.05f);
-    mag_max *= powf(mag_range, 0.05f);
+    int mag_min_exp = (int)floorf(log10f(mag_min));
+    int mag_max_exp = (int)ceilf(log10f(mag_max));
+    mag_min = powf(10.0f, mag_min_exp);
+    mag_max = powf(10.0f, mag_max_exp);
 
+    // Add padding to phase range
     float phase_range = phase_max - phase_min;
     phase_min -= phase_range * 0.05f;
     phase_max += phase_range * 0.05f;
@@ -177,12 +180,22 @@ void drawBodePlot(uint8_t dutIndex) {
     tft.drawLine(PLOT_X0, PLOT_Y0, PLOT_X0 + PLOT_WIDTH, PLOT_Y0, COLOR_AXIS);  // X-axis
     tft.drawLine(PLOT_X0, PLOT_Y0, PLOT_X0, PLOT_Y0 - PLOT_HEIGHT, COLOR_AXIS); // Y-axis
 
-    // Draw grid (4 vertical lines, 4 horizontal lines)
-    for (int i = 1; i < 4; i++) {
-        int16_t x = PLOT_X0 + (PLOT_WIDTH * i / 4);
-        int16_t y = PLOT_Y0 - (PLOT_HEIGHT * i / 4);
-        tft.drawLine(x, PLOT_Y0, x, PLOT_Y0 - PLOT_HEIGHT, COLOR_GRID);
-        tft.drawLine(PLOT_X0, y, PLOT_X0 + PLOT_WIDTH, y, COLOR_GRID);
+    // Draw grid lines at powers of 10 for frequency (X-axis)
+    for (int exp = freq_min_exp; exp <= freq_max_exp; exp++) {
+        float freq = powf(10.0f, exp);
+        int16_t x = freqToX(freq, freq_min, freq_max);
+        if (x > PLOT_X0 && x < PLOT_X0 + PLOT_WIDTH) {
+            tft.drawLine(x, PLOT_Y0, x, PLOT_Y0 - PLOT_HEIGHT, COLOR_GRID);
+        }
+    }
+
+    // Draw grid lines at powers of 10 for magnitude (Y-axis)
+    for (int exp = mag_min_exp; exp <= mag_max_exp; exp++) {
+        float mag = powf(10.0f, exp);
+        int16_t y = magToY(mag, mag_min, mag_max);
+        if (y > PLOT_Y0 - PLOT_HEIGHT && y < PLOT_Y0) {
+            tft.drawLine(PLOT_X0, y, PLOT_X0 + PLOT_WIDTH, y, COLOR_GRID);
+        }
     }
 
     // Axis labels
@@ -201,39 +214,50 @@ void drawBodePlot(uint8_t dutIndex) {
     tft.setCursor(SCREEN_WIDTH - 40, SCREEN_HEIGHT / 2);
     tft.print("Phase");
 
-    // Tick labels (approximate, minimal to avoid clutter)
-    tft.setTextColor(COLOR_TEXT);
+    // Tick labels in scientific notation
     tft.setTextSize(1);
-
-    // Frequency ticks (X-axis)
     char buf[16];
-    snprintf(buf, sizeof(buf), "%.0f", freq_min);
-    tft.setCursor(PLOT_X0 - 10, PLOT_Y0 + 5);
-    tft.print(buf);
 
-    snprintf(buf, sizeof(buf), "%.0f", freq_max);
-    tft.setCursor(PLOT_X0 + PLOT_WIDTH - 20, PLOT_Y0 + 5);
-    tft.print(buf);
+    // Frequency ticks (X-axis) - scientific notation
+    tft.setTextColor(COLOR_TEXT);
+    for (int exp = freq_min_exp; exp <= freq_max_exp; exp++) {
+        float freq = powf(10.0f, exp);
+        int16_t x = freqToX(freq, freq_min, freq_max);
 
-    // Magnitude ticks (Y-axis left)
+        if (x >= PLOT_X0 && x <= PLOT_X0 + PLOT_WIDTH) {
+            snprintf(buf, sizeof(buf), "10^%d", exp);
+            tft.setCursor(x - 15, PLOT_Y0 + 5);
+            tft.print(buf);
+        }
+    }
+
+    // Magnitude ticks (Y-axis left) - scientific notation
     tft.setTextColor(COLOR_MAG);
-    snprintf(buf, sizeof(buf), "%.1f", mag_min);
-    tft.setCursor(5, PLOT_Y0 - 5);
-    tft.print(buf);
+    for (int exp = mag_min_exp; exp <= mag_max_exp; exp++) {
+        float mag = powf(10.0f, exp);
+        int16_t y = magToY(mag, mag_min, mag_max);
 
-    snprintf(buf, sizeof(buf), "%.1f", mag_max);
-    tft.setCursor(5, PLOT_Y0 - PLOT_HEIGHT);
-    tft.print(buf);
+        if (y >= PLOT_Y0 - PLOT_HEIGHT && y <= PLOT_Y0) {
+            snprintf(buf, sizeof(buf), "10^%d", exp);
+            tft.setCursor(2, y - 4);
+            tft.print(buf);
+        }
+    }
 
-    // Phase ticks (Y-axis right)
+    // Phase ticks (Y-axis right) - degrees
     tft.setTextColor(COLOR_PHASE);
-    snprintf(buf, sizeof(buf), "%.0f", phase_min);
-    tft.setCursor(SCREEN_WIDTH - 40, PLOT_Y0 - 5);
-    tft.print(buf);
+    int phase_step = (int)((phase_max - phase_min) / 4);
+    if (phase_step < 10) phase_step = 10;
 
-    snprintf(buf, sizeof(buf), "%.0f", phase_max);
-    tft.setCursor(SCREEN_WIDTH - 40, PLOT_Y0 - PLOT_HEIGHT);
-    tft.print(buf);
+    for (int phase_val = (int)phase_min; phase_val <= (int)phase_max; phase_val += phase_step) {
+        int16_t y = phaseToY(phase_val, phase_min, phase_max);
+
+        if (y >= PLOT_Y0 - PLOT_HEIGHT && y <= PLOT_Y0) {
+            snprintf(buf, sizeof(buf), "%d", phase_val);
+            tft.setCursor(SCREEN_WIDTH - 25, y - 4);
+            tft.print(buf);
+        }
+    }
 
     // Plot magnitude data (solid line)
     int16_t prevX_mag = -1, prevY_mag = -1;
