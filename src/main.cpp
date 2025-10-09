@@ -8,6 +8,7 @@
 #include "impedance_calc.h"
 #include "bode_plot.h"
 #include "csv_export.h"
+#include "serial_commands.h"
 
 /*=========================GLOBAL VARIABLES=========================*/
 // Initialize global impedance data arrays
@@ -90,9 +91,8 @@ void taskGUI(void* parameter) {
     // Wait a bit for system to stabilize
     vTaskDelay(pdMS_TO_TICKS(2000));
 
-    // Send start command to STM32
-    sendStartCommand(1);  // Default 4 DUTs
-    Serial.println("Start command sent to STM32");
+    Serial.println("\n=== BioPal ESP32 Ready ===");
+    Serial.println("Type 'help' for available commands\n");
 
     // Get semaphore handles
     SemaphoreHandle_t dutCompleteSem = getDUTCompleteSemaphore();
@@ -102,8 +102,11 @@ void taskGUI(void* parameter) {
 
     // Main GUI event loop
     while (true) {
-        // Wait for DUT completion event (10 second timeout)
-        if (xSemaphoreTake(dutCompleteSem, pdMS_TO_TICKS(10000)) == pdTRUE) {
+        // Process serial commands from computer
+        processSerialCommands();
+
+        // Wait for DUT completion event (100ms timeout to allow command processing)
+        if (xSemaphoreTake(dutCompleteSem, pdMS_TO_TICKS(100)) == pdTRUE) {
             // DUT just completed - draw Bode plot
             uint8_t dutIndex = getCompletedDUTIndex();
             Serial.printf("Drawing Bode plot for completed DUT %d...\n", dutIndex + 1);
@@ -120,9 +123,6 @@ void taskGUI(void* parameter) {
             Serial.println("All measurements complete - exporting CSV data");
             printCSVToSerial();
             allMeasurementsComplete = false;  // Reset flag
-
-            // Could add button handling here to restart measurements
-            // For now, just wait
         }
 
         // Small delay to prevent task starvation
