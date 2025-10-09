@@ -120,7 +120,8 @@ bool calibrate(MeasurementPoint& point) {
     CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
     if(calPoint) {
         // Apply calibration
-        point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
+        // point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
+        point.V_magnitude = 0.010375;
         point.I_magnitude = point.I_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->current_gain;
         point.phase_deg -= calPoint->phase_offset;
         return true;
