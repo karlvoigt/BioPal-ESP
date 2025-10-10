@@ -246,6 +246,13 @@ static int32_t bytesToInt32(uint8_t* bytes) {
     return (int32_t)bytesToUint32(bytes);
 }
 
+// Convert 4 bytes to float (IEEE 754)
+static float bytesToFloat(uint8_t* bytes) {
+    float result;
+    memcpy(&result, bytes, sizeof(float));
+    return result;
+}
+
 // Parse and queue a frequency packet
 static void parseFrequencyPacket() {
     MeasurementPoint point;
@@ -253,21 +260,17 @@ static void parseFrequencyPacket() {
     // Parse frequency (4 bytes at index 2)
     point.freq_hz = bytesToUint32(&rxContext.buffer[2]);
 
-    // Parse voltage magnitude (4 bytes at index 6) - scaled by 1000
-    uint32_t v_mag_scaled = bytesToUint32(&rxContext.buffer[6]);
-    point.V_magnitude = v_mag_scaled / 1000.0f;
+    // Parse voltage magnitude (4 bytes at index 6) - float
+    point.V_magnitude = bytesToFloat(&rxContext.buffer[6]);
 
-    // Parse voltage phase (4 bytes at index 10) - scaled by 100
-    int32_t v_phase_scaled = bytesToInt32(&rxContext.buffer[10]);
-    float v_phase = v_phase_scaled / 100.0f;
+    // Parse voltage phase (4 bytes at index 10) - float
+    float v_phase = bytesToFloat(&rxContext.buffer[10]);
 
-    // Parse current magnitude (4 bytes at index 14) - scaled by 1000
-    uint32_t i_mag_scaled = bytesToUint32(&rxContext.buffer[14]);
-    point.I_magnitude = i_mag_scaled / 1000.0f;
+    // Parse current magnitude (4 bytes at index 14) - float
+    point.I_magnitude = bytesToFloat(&rxContext.buffer[14]);
 
-    // Parse current phase (4 bytes at index 18) - scaled by 100
-    int32_t i_phase_scaled = bytesToInt32(&rxContext.buffer[18]);
-    float i_phase = i_phase_scaled / 100.0f;
+    // Parse current phase (4 bytes at index 18) - float
+    float i_phase = bytesToFloat(&rxContext.buffer[18]);
 
     // Calculate phase difference (V - I)
     point.phase_deg = v_phase - i_phase;

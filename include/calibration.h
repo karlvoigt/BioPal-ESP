@@ -64,10 +64,18 @@ class FreqCalibrationData
 };
 
 /*=========================GLOBAL CALIBRATION DATA=========================*/
-#define MAX_CAL_FREQUENCIES 50
+#define MAX_CAL_FREQUENCIES 38
 
 extern FreqCalibrationData calibrationData[MAX_CAL_FREQUENCIES];
 extern int numCalibrationFreqs;
+
+// Calibration arrays
+extern float v_phase_shifts[MAX_CAL_FREQUENCIES];
+extern float v_gain[MAX_CAL_FREQUENCIES];
+extern float I_low_phase_shift[MAX_CAL_FREQUENCIES];
+extern float I_low_gain[MAX_CAL_FREQUENCIES];
+extern float I_high_phase_shift[MAX_CAL_FREQUENCIES];
+extern float I_high_gain[MAX_CAL_FREQUENCIES];
 
 /*=========================CALIBRATION FUNCTIONS=========================*/
 
@@ -77,7 +85,7 @@ bool loadCalibrationData();
 
 // Get calibration point for specific frequency and gain settings
 // Returns pointer to CalibrationPoint or nullptr if not found
-CalibrationPoint* getCalibrationPoint(uint32_t freq, bool highTIA, uint8_t pgaGain);
+CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGain);
 
 // Find the index of a frequency in the calibration data
 // Returns -1 if not found
