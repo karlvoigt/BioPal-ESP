@@ -1,0 +1,398 @@
+DUT,Frequency_Hz,Magnitude_Ohms,Phase_Deg
+1,1,31312.019531,-45.73
+1,2,20933.966797,-42.89
+1,4,14979.376953,-41.31
+1,5,13272.035156,-40.67
+1,8,10189.063477,-40.32
+1,10,8930.900391,-40.90
+1,16,6876.511230,-41.34
+1,20,6193.903809,-40.63
+1,25,5349.502441,-42.36
+1,32,4745.999023,-43.26
+1,40,4141.095703,-43.68
+1,50,3604.863037,-44.55
+1,80,2639.260254,-46.20
+1,100,2288.420898,-47.45
+1,125,1935.488892,-49.24
+1,160,1585.310181,-52.00
+1,200,1271.210205,-55.89
+1,250,974.206604,-61.13
+1,400,531.465942,-70.90
+1,500,533.450317,-62.58
+1,625,411.294708,-65.37
+1,800,314.745026,-67.42
+1,1000,248.170609,-67.82
+1,1250,194.587448,-69.25
+1,2000,119.297905,-69.26
+1,2500,95.346718,-68.86
+1,3125,75.929245,-66.82
+1,4000,60.520359,-66.11
+1,5000,50.429276,-63.46
+1,6250,41.747040,-61.26
+1,10000,30.465269,-53.87
+1,12500,26.417057,-49.88
+1,15625,23.612963,-46.44
+1,25000,18.682758,-37.01
+1,50000,15.064610,-25.40
+1,62500,14.528634,-22.40
+1,80000,13.876981,-19.28
+1,100000,13.529885,-16.28
+
+DUT,Frequency_Hz,Magnitude_Ohms,Phase_Deg
+1,1,29181.859375,-41.37
+1,2,20383.193359,-41.03
+1,4,13844.443359,-41.49
+1,5,12277.392578,-40.16
+1,8,9374.339844,-40.34
+1,10,8361.669922,-40.49
+1,16,6634.074219,-40.29
+1,20,5955.530273,-41.03
+1,25,5241.050781,-40.83
+1,32,4602.053223,-41.26
+1,40,4010.944824,-42.77
+1,50,3518.150391,-43.29
+1,80,2614.646484,-45.55
+1,100,2246.359131,-47.05
+1,125,1906.392578,-49.05
+1,160,1554.569824,-52.29
+1,200,1239.567627,-56.53
+1,250,943.263672,-61.59
+1,400,510.517059,-71.29
+1,500,516.512695,-63.31
+1,625,396.436890,-65.59
+1,800,301.813263,-67.80
+1,1000,237.713043,-68.41
+1,1250,187.900833,-69.52
+1,2000,114.350746,-69.21
+1,2500,91.876839,-68.45
+1,3125,73.351746,-66.56
+1,4000,58.610817,-65.81
+1,5000,48.821404,-63.09
+1,6250,40.390953,-60.67
+1,10000,29.693949,-53.21
+1,12500,25.829386,-49.18
+1,15625,23.142462,-45.83
+1,25000,18.396843,-36.46
+1,50000,14.894807,-25.06
+1,62500,14.371091,-22.09
+1,80000,13.729918,-18.98
+1,100000,13.382264,-16.03
+
+=== MEASUREMENT COMPLETE ===
+Starting impedance measurement for 1 DUT(s)
+
+=== STARTING IMPEDANCE MEASUREMENT ===
+Total frequencies: 38
+Total DUTs: 1
+=====================================
+
+Impedance measurement started successfully
+Setting up frequency 1/38: 1 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=517
+DAQ_SetOptimalGain: Increasing to gain 10 (predicted peak=1034)
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1152
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1152)
+V: Freq=1 Hz, Vpp=3.0849 mV, Phase=104.00
+I: Freq=1 Hz, Ipp=0.5148 mV, Phase=145.36, TIA Gain: 0, PGA Gain: 10
+Setting up frequency 2/38: 2 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1229
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1229)
+V: Freq=2 Hz, Vpp=3.0864 mV, Phase=84.33
+I: Freq=2 Hz, Ipp=0.7374 mV, Phase=125.34, TIA Gain: 0, PGA Gain: 10
+Setting up frequency 3/38: 4 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1277
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1277)
+V: Freq=4 Hz, Vpp=3.0809 mV, Phase=95.63
+I: Freq=4 Hz, Ipp=1.0838 mV, Phase=137.08, TIA Gain: 0, PGA Gain: 10
+Setting up frequency 4/38: 5 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1222
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1222)
+V: Freq=5 Hz, Vpp=3.0857 mV, Phase=101.25
+I: Freq=5 Hz, Ipp=1.2240 mV, Phase=141.36, TIA Gain: 0, PGA Gain: 10
+Setting up frequency 5/38: 8 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1442
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1442)
+V: Freq=8 Hz, Vpp=3.0872 mV, Phase=112.44
+I: Freq=8 Hz, Ipp=1.6038 mV, Phase=152.70, TIA Gain: 0, PGA Gain: 10
+Setting up frequency 6/38: 10 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1799
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1799)
+V: Freq=10 Hz, Vpp=3.0847 mV, Phase=118.18
+I: Freq=10 Hz, Ipp=1.7966 mV, Phase=158.56, TIA Gain: 0, PGA Gain: 10
+Setting up frequency 7/38: 16 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1951
+DAQ_SetOptimalGain: Clipping detected at gain 10 (TIA low gain=0)
+  Previous gain: 10 (TIA low gain=0)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 5
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1010
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1010)
+V: Freq=16 Hz, Vpp=3.0853 mV, Phase=-168.75
+I: Freq=16 Hz, Ipp=1.1324 mV, Phase=-128.63, TIA Gain: 0, PGA Gain: 5
+Setting up frequency 8/38: 20 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1059
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1059)
+V: Freq=20 Hz, Vpp=3.0801 mV, Phase=152.03
+I: Freq=20 Hz, Ipp=1.2593 mV, Phase=-167.14, TIA Gain: 0, PGA Gain: 5
+Setting up frequency 9/38: 25 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1161
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1161)
+V: Freq=25 Hz, Vpp=3.0844 mV, Phase=168.74
+I: Freq=25 Hz, Ipp=1.4330 mV, Phase=-150.69, TIA Gain: 0, PGA Gain: 5
+Setting up frequency 10/38: 32 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1281
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1281)
+V: Freq=32 Hz, Vpp=3.0889 mV, Phase=-157.39
+I: Freq=32 Hz, Ipp=1.6343 mV, Phase=-116.47, TIA Gain: 0, PGA Gain: 5
+Setting up frequency 11/38: 40 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1425
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1425)
+V: Freq=40 Hz, Vpp=3.0870 mV, Phase=-123.78
+I: Freq=40 Hz, Ipp=1.8741 mV, Phase=-81.43, TIA Gain: 0, PGA Gain: 5
+Setting up frequency 12/38: 50 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1737
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1737)
+V: Freq=50 Hz, Vpp=3.0871 mV, Phase=-104.01
+I: Freq=50 Hz, Ipp=2.1366 mV, Phase=-61.26, TIA Gain: 0, PGA Gain: 5
+Setting up frequency 13/38: 80 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1957
+DAQ_SetOptimalGain: Clipping detected at gain 5 (TIA low gain=0)
+  Previous gain: 5 (TIA low gain=0)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 2
+DAQ_SetOptimalGain: Gain=2, Peak deviation=870
+DAQ_SetOptimalGain: Cannot increase gain (would clip), accepting gain 2
+V: Freq=80 Hz, Vpp=3.0826 mV, Phase=-45.00
+I: Freq=80 Hz, Ipp=1.1482 mV, Phase=0.30, TIA Gain: 0, PGA Gain: 2
+Setting up frequency 14/38: 100 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=2, Peak deviation=1041
+DAQ_SetOptimalGain: Optimal gain found: 2 (peak=1041)
+V: Freq=100 Hz, Vpp=3.0832 mV, Phase=67.50
+I: Freq=100 Hz, Ipp=1.3366 mV, Phase=113.48, TIA Gain: 0, PGA Gain: 2
+Setting up frequency 15/38: 125 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=2, Peak deviation=1193
+DAQ_SetOptimalGain: Optimal gain found: 2 (peak=1193)
+V: Freq=125 Hz, Vpp=3.0846 mV, Phase=-115.38
+I: Freq=125 Hz, Ipp=1.5756 mV, Phase=-67.67, TIA Gain: 0, PGA Gain: 2
+Setting up frequency 16/38: 160 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=2, Peak deviation=1353
+DAQ_SetOptimalGain: Optimal gain found: 2 (peak=1353)
+V: Freq=160 Hz, Vpp=3.0812 mV, Phase=16.85
+I: Freq=160 Hz, Ipp=1.9296 mV, Phase=67.43, TIA Gain: 0, PGA Gain: 2
+Setting up frequency 17/38: 200 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=2, Peak deviation=1616
+DAQ_SetOptimalGain: Optimal gain found: 2 (peak=1616)
+V: Freq=200 Hz, Vpp=3.0805 mV, Phase=126.49
+I: Freq=200 Hz, Ipp=2.4189 mV, Phase=-179.11, TIA Gain: 0, PGA Gain: 2
+Setting up frequency 18/38: 250 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=2, Peak deviation=2048
+DAQ_SetOptimalGain: Clipping detected at gain 2 (TIA low gain=0)
+  Previous gain: 2 (TIA low gain=0)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 1
+DAQ_SetOptimalGain: Gain=1, Peak deviation=1101
+DAQ_SetOptimalGain: Optimal gain found: 1 (peak=1101)
+V: Freq=250 Hz, Vpp=3.0828 mV, Phase=-42.10
+I: Freq=250 Hz, Ipp=1.5899 mV, Phase=16.82, TIA Gain: 0, PGA Gain: 1
+Setting up frequency 19/38: 400 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=1, Peak deviation=1920
+DAQ_SetOptimalGain: Optimal gain found: 1 (peak=1920)
+V: Freq=400 Hz, Vpp=3.0825 mV, Phase=-120.74
+I: Freq=400 Hz, Ipp=2.9324 mV, Phase=-53.70, TIA Gain: 0, PGA Gain: 1
+Setting up frequency 20/38: 500 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=1, Peak deviation=2048
+DAQ_SetOptimalGain: Clipping detected at gain 1 (TIA low gain=0)
+  Previous gain: 1 (TIA low gain=0)
+DAQ_SetOptimalGain: Signal clipping at minimum gain, switching TIA to low gain
+DAQ_SetOptimalGain: Gain=200, Peak deviation=2037
+DAQ_SetOptimalGain: Clipping detected at gain 200 (TIA low gain=1)
+  Previous gain: 1 (TIA low gain=0)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 100
+DAQ_SetOptimalGain: Gain=100, Peak deviation=1285
+DAQ_SetOptimalGain: Optimal gain found: 100 (peak=1285)
+V: Freq=500 Hz, Vpp=3.0848 mV, Phase=73.14
+I: Freq=500 Hz, Ipp=1.4543 mV, Phase=136.38, TIA Gain: 1, PGA Gain: 100
+Setting up frequency 21/38: 625 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=100, Peak deviation=1365
+DAQ_SetOptimalGain: Optimal gain found: 100 (peak=1365)
+V: Freq=625 Hz, Vpp=3.0822 mV, Phase=-106.89
+I: Freq=625 Hz, Ipp=1.8932 mV, Phase=-41.38, TIA Gain: 1, PGA Gain: 100
+Setting up frequency 22/38: 800 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=100, Peak deviation=1883
+DAQ_SetOptimalGain: Optimal gain found: 100 (peak=1883)
+V: Freq=800 Hz, Vpp=3.0839 mV, Phase=-75.88
+I: Freq=800 Hz, Ipp=2.4881 mV, Phase=-8.17, TIA Gain: 1, PGA Gain: 100
+Setting up frequency 23/38: 1000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=100, Peak deviation=2048
+DAQ_SetOptimalGain: Clipping detected at gain 100 (TIA low gain=1)
+  Previous gain: 100 (TIA low gain=1)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 50
+DAQ_SetOptimalGain: Gain=50, Peak deviation=1247
+DAQ_SetOptimalGain: Optimal gain found: 50 (peak=1247)
+V: Freq=1000 Hz, Vpp=3.0898 mV, Phase=0.05
+I: Freq=1000 Hz, Ipp=1.5825 mV, Phase=68.43, TIA Gain: 1, PGA Gain: 50
+Setting up frequency 24/38: 1250 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=50, Peak deviation=1435
+DAQ_SetOptimalGain: Optimal gain found: 50 (peak=1435)
+V: Freq=1250 Hz, Vpp=3.0815 mV, Phase=-13.95
+I: Freq=1250 Hz, Ipp=1.9967 mV, Phase=55.52, TIA Gain: 1, PGA Gain: 50
+Setting up frequency 25/38: 2000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=50, Peak deviation=2048
+DAQ_SetOptimalGain: Clipping detected at gain 50 (TIA low gain=1)
+  Previous gain: 50 (TIA low gain=1)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 20
+DAQ_SetOptimalGain: Gain=20, Peak deviation=967
+DAQ_SetOptimalGain: Optimal gain found: 20 (peak=967)
+V: Freq=2000 Hz, Vpp=3.0832 mV, Phase=160.48
+I: Freq=2000 Hz, Ipp=1.3131 mV, Phase=-130.32, TIA Gain: 1, PGA Gain: 20
+Setting up frequency 26/38: 2500 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=20, Peak deviation=1147
+DAQ_SetOptimalGain: Optimal gain found: 20 (peak=1147)
+V: Freq=2500 Hz, Vpp=3.0817 mV, Phase=-109.52
+I: Freq=2500 Hz, Ipp=1.6335 mV, Phase=-41.09, TIA Gain: 1, PGA Gain: 20
+Setting up frequency 27/38: 3125 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=20, Peak deviation=1391
+DAQ_SetOptimalGain: Optimal gain found: 20 (peak=1391)
+V: Freq=3125 Hz, Vpp=3.0965 mV, Phase=31.07
+I: Freq=3125 Hz, Ipp=2.0559 mV, Phase=97.60, TIA Gain: 1, PGA Gain: 20
+Setting up frequency 28/38: 4000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=20, Peak deviation=1708
+DAQ_SetOptimalGain: Optimal gain found: 20 (peak=1708)
+V: Freq=4000 Hz, Vpp=3.0819 mV, Phase=146.40
+I: Freq=4000 Hz, Ipp=2.5608 mV, Phase=-147.81, TIA Gain: 1, PGA Gain: 20
+Setting up frequency 29/38: 5000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=20, Peak deviation=2048
+DAQ_SetOptimalGain: Clipping detected at gain 20 (TIA low gain=1)
+  Previous gain: 20 (TIA low gain=1)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 10
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1057
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1057)
+V: Freq=5000 Hz, Vpp=3.0898 mV, Phase=81.73
+I: Freq=5000 Hz, Ipp=1.5411 mV, Phase=144.83, TIA Gain: 1, PGA Gain: 10
+Setting up frequency 30/38: 6250 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1258
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1258)
+V: Freq=6250 Hz, Vpp=3.0823 mV, Phase=19.64
+I: Freq=6250 Hz, Ipp=1.8583 mV, Phase=80.33, TIA Gain: 1, PGA Gain: 10
+Setting up frequency 31/38: 10000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1714
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1714)
+V: Freq=10000 Hz, Vpp=3.0885 mV, Phase=-96.47
+I: Freq=10000 Hz, Ipp=2.5329 mV, Phase=-43.24, TIA Gain: 1, PGA Gain: 10
+Setting up frequency 32/38: 12500 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=1904
+DAQ_SetOptimalGain: Optimal gain found: 10 (peak=1904)
+V: Freq=12500 Hz, Vpp=3.0923 mV, Phase=-130.90
+I: Freq=12500 Hz, Ipp=2.9155 mV, Phase=-81.69, TIA Gain: 1, PGA Gain: 10
+Setting up frequency 33/38: 15625 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=10, Peak deviation=2048
+DAQ_SetOptimalGain: Clipping detected at gain 10 (TIA low gain=1)
+  Previous gain: 10 (TIA low gain=1)
+DAQ_SetOptimalGain: Clipping detected, reducing to gain 5
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1129
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1129)
+V: Freq=15625 Hz, Vpp=3.0960 mV, Phase=-64.48
+I: Freq=15625 Hz, Ipp=1.6290 mV, Phase=-18.61, TIA Gain: 1, PGA Gain: 5
+Setting up frequency 34/38: 25000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1388
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1388)
+V: Freq=25000 Hz, Vpp=3.1061 mV, Phase=51.26
+I: Freq=25000 Hz, Ipp=2.0564 mV, Phase=87.78, TIA Gain: 1, PGA Gain: 5
+Setting up frequency 35/38: 50000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1674
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1674)
+V: Freq=50000 Hz, Vpp=3.1183 mV, Phase=23.10
+I: Freq=50000 Hz, Ipp=2.5527 mV, Phase=48.30, TIA Gain: 1, PGA Gain: 5
+Setting up frequency 36/38: 62500 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1749
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1749)
+V: Freq=62500 Hz, Vpp=3.1184 mV, Phase=133.98
+I: Freq=62500 Hz, Ipp=2.6480 mV, Phase=156.22, TIA Gain: 1, PGA Gain: 5
+Setting up frequency 37/38: 80000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1815
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1815)
+V: Freq=80000 Hz, Vpp=3.1130 mV, Phase=-175.08
+I: Freq=80000 Hz, Ipp=2.7708 mV, Phase=-155.91, TIA Gain: 1, PGA Gain: 5
+Setting up frequency 38/38: 100000 Hz for DUT 1
+DAQ_SetOptimalGain: Gain=5, Peak deviation=1874
+DAQ_SetOptimalGain: Optimal gain found: 5 (peak=1874)
+V: Freq=100000 Hz, Vpp=3.0952 mV, Phase=-45.58
+I: Freq=100000 Hz, Ipp=2.8325 mV, Phase=-29.33, TIA Gain: 1, PGA Gain: 5
+
+========== DUT 1 RESULTS ==========
+DUT_1_VOLTAGE,38
+1,3084,10400,0,0,1
+2,3086,8433,0,0,1
+4,3080,9563,0,0,1
+5,3085,10125,0,0,1
+8,3087,11244,0,0,1
+10,3084,11818,0,0,1
+16,3085,-16875,0,0,1
+20,3080,15203,0,0,1
+25,3084,16874,0,0,1
+32,3088,-15739,0,0,1
+40,3087,-12378,0,0,1
+50,3087,-10401,0,0,1
+80,3082,-4500,0,0,1
+100,3083,6750,0,0,1
+125,3084,-11538,0,0,1
+160,3081,1685,0,0,1
+200,3080,12649,0,0,1
+250,3082,-4210,0,0,1
+400,3082,-12074,0,0,1
+500,3084,7314,0,0,1
+625,3082,-10689,0,0,1
+800,3083,-7588,0,0,1
+1000,3089,5,0,0,1
+1250,3081,-1395,0,0,1
+2000,3083,16048,0,0,1
+2500,3081,-10952,0,0,1
+3125,3096,3107,0,0,1
+4000,3081,14640,0,0,1
+5000,3089,8173,0,0,1
+6250,3082,1964,0,0,1
+10000,3088,-9647,0,0,1
+12500,3092,-13090,0,0,1
+15625,3096,-6448,0,0,1
+25000,3106,5126,0,0,1
+50000,3118,2310,0,0,1
+62500,3118,13398,0,0,1
+80000,3113,-17508,0,0,1
+100000,3095,-4558,0,0,1
+DUT_1_CURRENT,38
+1,514,14536,3,0,1
+2,737,12534,3,0,1
+4,1083,13708,3,0,1
+5,1224,14136,3,0,1
+8,1603,15270,3,0,1
+10,1796,15856,3,0,1
+16,1132,-12863,2,0,1
+20,1259,-16714,2,0,1
+25,1433,-15069,2,0,1
+32,1634,-11647,2,0,1
+40,1874,-8143,2,0,1
+50,2136,-6126,2,0,1
+80,1148,-30,1,0,1
+100,1336,11348,1,0,1
+125,1575,-6767,1,0,1
+160,1929,6743,1,0,1
+200,2418,-17911,1,0,1
+250,1589,1682,0,0,1
+400,2932,-5370,0,0,1
+500,1454,13638,6,1,1
+625,1893,-4138,6,1,1
+800,2488,-817,6,1,1
+1000,1582,6843,5,1,1
+1250,1996,5552,5,1,1
+2000,1313,-13032,4,1,1
+2500,1633,-4109,4,1,1
+3125,2055,9760,4,1,1
+4000,2560,-14781,4,1,1
+5000,1541,14483,3,1,1
+6250,1858,8033,3,1,1
+10000,2532,-4324,3,1,1
+12500,2915,-8169,3,1,1
+15625,1629,-1861,2,1,1
+25000,2056,8778,2,1,1
+50000,2552,4830,2,1,1
+62500,2648,15622,2,1,1
+80000,2770,-15591,2,1,1
+100000,2832,-2933,2,1,1
+=========================================

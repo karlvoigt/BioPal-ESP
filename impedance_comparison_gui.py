@@ -20,11 +20,12 @@ class ImpedanceComparison:
         """Parse PalmSens PS Trace CSV format"""
         print(f"Loading PalmSens CSV: {filepath}")
 
-        # Try different encodings
-        for encoding in ['utf-16-le', 'utf-16', 'utf-8', 'latin-1']:
+        # Try different encodings (UTF-8 first as it's most common for CSV)
+        for encoding in ['utf-8', 'latin-1', 'utf-16-le', 'utf-16']:
             try:
                 with open(filepath, 'r', encoding=encoding) as f:
                     lines = f.readlines()
+                print(f"  Successfully decoded with {encoding} encoding")
                 break
             except UnicodeDecodeError:
                 continue
@@ -35,10 +36,15 @@ class ImpedanceComparison:
         data_start = 0
         for i, line in enumerate(lines):
             if 'freq' in line.lower() and 'hz' in line.lower():
+                print(f"  Found header at line {i+1}: {line.strip()[:60]}...")
                 data_start = i + 1
                 break
 
         if data_start == 0:
+            print("  ERROR: Could not find header line containing 'freq' and 'hz'")
+            print(f"  First 10 lines of file:")
+            for i, line in enumerate(lines[:10]):
+                print(f"    Line {i+1}: {line.strip()[:80]}")
             raise ValueError("Could not find data header in PalmSens CSV")
 
         # Parse data rows
