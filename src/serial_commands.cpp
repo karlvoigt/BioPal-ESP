@@ -1,5 +1,6 @@
 #include "serial_commands.h"
 #include "UART_Functions.h"
+#include "defines.h"
 #include <string.h>
 
 #define CMD_BUFFER_SIZE 64
@@ -39,6 +40,18 @@ void processSerialCommands() {
         }
 
         Serial.printf("Starting measurement with %d DUT%s...\n", num_duts, num_duts > 1 ? "s" : "");
+
+        // Clear previous measurement data
+        Serial.println("Clearing measurement buffers...");
+        for (int i = 0; i < MAX_DUT_COUNT; i++) {
+            frequencyCount[i] = 0;
+            // Optionally clear impedance data array
+            for (int j = 0; j < MAX_FREQUENCIES; j++) {
+                impedanceData[i][j] = ImpedancePoint();
+            }
+        }
+        Serial.println("Buffers cleared - ready for new measurement");
+
         sendStartCommand(num_duts);
     }
     else if (cmdLine.equals("stop")) {

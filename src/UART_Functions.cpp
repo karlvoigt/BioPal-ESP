@@ -272,8 +272,11 @@ static void parseFrequencyPacket() {
     // Parse current phase (4 bytes at index 18) - float
     float i_phase = bytesToFloat(&rxContext.buffer[18]);
 
-    // Calculate phase difference (V - I)
-    point.phase_deg = v_phase - i_phase;
+    // Calculate phase difference (V - I) and normalize to [-180, 180]
+    float phase_diff = v_phase - i_phase;
+    while (phase_diff > 180.0f) phase_diff -= 360.0f;
+    while (phase_diff < -180.0f) phase_diff += 360.0f;
+    point.phase_deg = phase_diff;
 
     // Parse PGA gain (1 byte at index 22)
     point.pga_gain = rxContext.buffer[22];
