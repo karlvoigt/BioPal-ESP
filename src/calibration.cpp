@@ -426,7 +426,7 @@ bool calibrate(MeasurementPoint& point) {
         // point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
         point.V_magnitude = point.V_magnitude / calPoint->voltage_gain;
         point.I_magnitude = point.I_magnitude / calPoint->current_gain;
-        point.phase_deg += calPoint->phase_offset;
+        point.phase_deg -= calPoint->phase_offset;
         return true;
     } else {
         return false; // Calibration point not found
