@@ -250,7 +250,7 @@
 // };
 
 const float V_GBW = 10.0f;  // Gain Bandwidth Product in MHz
-const float V_gain = 15.0f; // Voltage Gain of the INA331 Instrumentation Amplifier
+const float V_gain = 15.4f; // Voltage Gain of the INA331 Instrumentation Amplifier
 const float PGA_Cutoff[8] = { // Cutoff frequencies for each PGA gain setting (in MHz)
     10.0f,  // Gain = 1
     3.8f,   // Gain = 2
@@ -265,6 +265,9 @@ const float I_GBW = 40.0f;  // Gain Bandwidth Product in MHz
 const float TIA_Gains[2] = {7500.0f, 37.5f}; // TIA Gains for High and Low modes respectively
 const float TLV_gain = 20.0f; // Gain of the TLV9061 OpAmp which is identical on both current and voltage stages
 
+// const float non_ideal_phase_shift[38] = {
+
+// }
 /**
  * @brief PGA113 Gain enumeration (Scope gains)
  */
@@ -421,9 +424,9 @@ bool calibrate(MeasurementPoint& point) {
     if(calPoint) {
         // Apply calibration
         // point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
-        point.V_magnitude = 0.010375;
-        point.I_magnitude = point.I_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->current_gain;
-        point.phase_deg -= calPoint->phase_offset;
+        point.V_magnitude = point.V_magnitude / calPoint->voltage_gain;
+        point.I_magnitude = point.I_magnitude / calPoint->current_gain;
+        point.phase_deg += calPoint->phase_offset;
         return true;
     } else {
         return false; // Calibration point not found
