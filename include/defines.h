@@ -23,9 +23,11 @@ struct ImpedancePoint {
     uint32_t freq_hz;       // Frequency in Hz
     float Z_magnitude;      // Impedance magnitude in Ohms
     float Z_phase;          // Impedance phase in degrees
+    uint8_t pga_gain;       // PGA gain setting (0-7)
+    bool tia_gain;          // TIA gain setting (true=high, false=low)
     bool valid;             // Validity flag
 
-    ImpedancePoint() : freq_hz(0), Z_magnitude(0.0), Z_phase(0.0), valid(false) {}
+    ImpedancePoint() : freq_hz(0), Z_magnitude(0.0), Z_phase(0.0),pga_gain(0),tia_gain(false), valid(false) {}
 };
 
 // Global impedance data storage [DUT][frequency]

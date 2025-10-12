@@ -179,7 +179,7 @@ class ImpedanceComparison:
 
         # Calculate percentage errors
         z_error = ((bp_z_interp - ps_z) / ps_z) * 100
-        phase_error = ((bp_phase_interp - ps_phase) / ps_phase) * 100
+        phase_error = (bp_phase_interp - ps_phase)
 
         # Print statistics
         print("\n=== Error Statistics ===")
@@ -188,9 +188,9 @@ class ImpedanceComparison:
         print(f"  Std:  {np.std(z_error):.2f}%")
         print(f"  Max:  {np.max(np.abs(z_error)):.2f}%")
         print(f"\nPhase Error:")
-        print(f"  Mean: {np.mean(phase_error):.2f}%")
-        print(f"  Std:  {np.std(phase_error):.2f}%")
-        print(f"  Max:  {np.max(np.abs(phase_error)):.2f}%")
+        print(f"  Mean: {np.mean(phase_error):.2f} deg")
+        print(f"  Std:  {np.std(phase_error):.2f} deg")
+        print(f"  Max:  {np.max(np.abs(phase_error)):.2f} deg")
 
         # Plot
         self.plot_comparison(freq_common, ps_z, ps_phase, bp_z_interp, bp_phase_interp, z_error, phase_error)
@@ -251,7 +251,7 @@ class ImpedanceComparison:
         ax4.axhline(y=0, color='k', linestyle='--', alpha=0.5, linewidth=1)
         ax4.fill_between(freq, 0, phase_error, alpha=0.3, color='magenta')
         ax4.set_xlabel('Frequency (Hz)', fontsize=11)
-        ax4.set_ylabel('Error (%)', fontsize=11)
+        ax4.set_ylabel('Error (deg)', fontsize=11)
         ax4.set_title('Phase Error (BioPal - PalmSens)', fontsize=12, fontweight='bold')
         ax4.grid(True, which='both', alpha=0.3)
 
@@ -259,7 +259,7 @@ class ImpedanceComparison:
         mean_phase_err = np.mean(phase_error)
         std_phase_err = np.std(phase_error)
         max_phase_err = np.max(np.abs(phase_error))
-        stats_text = f'Mean: {mean_phase_err:.2f}%\nStd: {std_phase_err:.2f}%\nMax: {max_phase_err:.2f}%'
+        stats_text = f'Mean: {mean_phase_err:.2f} deg\nStd: {std_phase_err:.2f} deg\nMax: {max_phase_err:.2f} deg'
         ax4.text(0.02, 0.98, stats_text, transform=ax4.transAxes,
                 verticalalignment='top', fontsize=9,
                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))

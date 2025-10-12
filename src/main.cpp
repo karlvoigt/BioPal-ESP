@@ -56,16 +56,17 @@ void taskDataProcessor(void* parameter) {
                 continue;
             }
 
-            // Calibrate the measurement point
-            if (calibrate(point)) {
-                Serial.printf("Calibrated: V=%.6fV, I=%.6fmA, Phase=%.2f\n",
-                             point.V_magnitude, point.I_magnitude, point.phase_deg);
-            } else {
-                Serial.printf("WARNING: Calibration failed for freq=%lu Hz\n", point.freq_hz);
-            }
 
             // Calculate impedance: Z = V / I
             ImpedancePoint impedance = calcImpedance(point);
+
+            // Calibrate the measurement point
+            if (calibrate(impedance)) {
+                Serial.printf("Calibrated: Z=%.6e Phase=%.2f\n",
+                             impedance.Z_magnitude, impedance.Z_phase);
+            } else {
+                Serial.printf("WARNING: Calibration failed for freq=%lu Hz\n", point.freq_hz);
+            }
 
             // Store in global impedance array
             int freqIndex = frequencyCount[dutIndex];

@@ -313,25 +313,25 @@ int findFrequencyIndex(uint32_t freq) {
 CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGain) {
     if(pgaGain > 7) return nullptr;
 
-    // Calculate our voltage gain and phase shift
-    float v_gain = 20 * V_gain * (1/sqrt(1+(pow((freq/(V_GBW/V_gain*1e6)), 2))));
-    float v_phase = -atan(freq/(V_GBW/V_gain*1e6)) * 180.0f / M_PI;
+    // // Calculate our voltage gain and phase shift
+    // float v_gain = 20 * V_gain * (1/sqrt(1+(pow((freq/(V_GBW/V_gain*1e6)), 2))));
+    // float v_phase = -atan(freq/(V_GBW/V_gain*1e6)) * 180.0f / M_PI;
 
-    // Calculate our current gain and phase shift
-    float tia_gain = TIA_Gains[lowTIA];
-    float i_gain = 20 * tia_gain * (1/sqrt(1+(pow((freq/(I_GBW/tia_gain*1e6)), 2)))) 
-                   * PGA113_ENUM_TO_GAIN(pgaGain) * (1/sqrt(1+(pow((freq/(PGA_Cutoff[pgaGain]*1e6)), 2))));
-    float i_phase = -atan(freq/(I_GBW/tia_gain*1e6)) * 180.0f / M_PI - atan(freq/(PGA_Cutoff[pgaGain]*1e6)) * 180.0f / M_PI;
+    // // Calculate our current gain and phase shift
+    // float tia_gain = TIA_Gains[lowTIA];
+    // float i_gain = 20 * tia_gain * (1/sqrt(1+(pow((freq/(I_GBW/tia_gain*1e6)), 2)))) 
+    //                * PGA113_ENUM_TO_GAIN(pgaGain) * (1/sqrt(1+(pow((freq/(PGA_Cutoff[pgaGain]*1e6)), 2))));
+    // float i_phase = -atan(freq/(I_GBW/tia_gain*1e6)) * 180.0f / M_PI - atan(freq/(PGA_Cutoff[pgaGain]*1e6)) * 180.0f / M_PI;
 
-    return new CalibrationPoint(v_gain, i_gain, v_phase - i_phase);
-    // int idx = findFrequencyIndex(freq);
-    // if(idx < 0) return nullptr;
+    // return new CalibrationPoint(v_gain, i_gain, v_phase - i_phase);
+    int idx = findFrequencyIndex(freq);
+    if(idx < 0) return nullptr;
 
-    // if(highTIA) {
-    //     return &calibrationData[idx].high_TIA_gains[pgaGain];
-    // } else {
-    //     return &calibrationData[idx].low_TIA_gains[pgaGain];
-    // }
+    if(lowTIA) {
+        return &calibrationData[idx].low_TIA_gains[pgaGain];
+    } else {
+        return &calibrationData[idx].high_TIA_gains[pgaGain];
+    }
 }
 
 /*=========================FILE LOADING FUNCTIONS=========================*/
@@ -341,92 +341,97 @@ CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGai
 // tia_mode: 0=low, 1=high
 // pga_gain: 0-7
 bool loadCalibrationData() {
-    // // Initialize LittleFS
-    // if(!LittleFS.begin(true)) {
-    //     Serial.println("Failed to mount LittleFS");
-    //     return false;
-    // }
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS");
+        return false;
+    }
 
-    // // Open calibration file
-    // File file = LittleFS.open("/calibration.csv", "r");
-    // if(!file) {
-    //     Serial.println("Failed to open calibration.csv");
-    //     LittleFS.end();
-    //     return false;
-    // }
+    // Open calibration file
+    File file = LittleFS.open("/calibration.csv", "r");
+    if(!file) {
+        Serial.println("Failed to open calibration.csv");
+        LittleFS.end();
+        return false;
+    }
 
-    // numCalibrationFreqs = 0;
-    // int currentFreqIdx = -1;
-    // uint32_t lastFreq = 0;
+    numCalibrationFreqs = 0;
+    int currentFreqIdx = -1;
+    uint32_t lastFreq = 0;
 
-    // // Read file line by line
-    // while(file.available() && numCalibrationFreqs < MAX_CAL_FREQUENCIES) {
-    //     String line = file.readStringUntil('\n');
-    //     line.trim();
+    // Read file line by line
+    while(file.available() && numCalibrationFreqs <= MAX_CAL_FREQUENCIES) {
+        String line = file.readStringUntil('\n');
+        line.trim();
 
-    //     // Skip empty lines and comments
-    //     if(line.length() == 0 || line.startsWith("#")) {
-    //         continue;
-    //     }
+        // Skip empty lines and comments
+        if(line.length() == 0 || line.startsWith("#")) {
+            continue;
+        }
 
-    //     // Parse CSV line: freq,tia_mode,pga_gain,v_gain,i_gain,phase
-    //     uint32_t freq = 0;
-    //     int tia_mode = 0;
-    //     int pga_gain = 0;
-    //     float v_gain = 1.0;
-    //     float i_gain = 1.0;
-    //     float phase = 0.0;
+        // Parse CSV line: freq,tia_mode,pga_gain,v_gain,i_gain,phase
+        uint32_t freq = 0;
+        int tia_mode = 0;
+        int pga_gain = 0;
+        float Z_gain = 1.0;
+        float phase = 0.0;
 
-    //     int fieldCount = sscanf(line.c_str(), "%lu,%d,%d,%f,%f,%f",
-    //                             &freq, &tia_mode, &pga_gain, &v_gain, &i_gain, &phase);
+        int fieldCount = sscanf(line.c_str(), "%lu,%d,%d,%f,%f",
+                                &freq, &tia_mode, &pga_gain, &Z_gain, &phase);
 
-    //     if(fieldCount != 6) {
-    //         Serial.printf("Invalid line: %s\n", line.c_str());
-    //         continue;
-    //     }
+        if(fieldCount != 5) {
+            Serial.printf("Invalid line: %s\n", line.c_str());
+            continue;
+        }
 
-    //     // Validate ranges
-    //     if(tia_mode < 0 || tia_mode > 1 || pga_gain < 0 || pga_gain > 7) {
-    //         Serial.printf("Invalid TIA mode or PGA gain: %s\n", line.c_str());
-    //         continue;
-    //     }
+        // Validate ranges
+        if(tia_mode < 0 || tia_mode > 1 || pga_gain < 0 || pga_gain > 7) {
+            Serial.printf("Invalid TIA mode or PGA gain: %s\n", line.c_str());
+            continue;
+        }
 
-    //     // Check if this is a new frequency
-    //     if(freq != lastFreq) {
-    //         currentFreqIdx = findFrequencyIndex(freq);
-    //         if(currentFreqIdx < 0) {
-    //             // New frequency, add it
-    //             currentFreqIdx = numCalibrationFreqs;
-    //             calibrationData[currentFreqIdx].frequency_hz = freq;
-    //             numCalibrationFreqs++;
-    //             lastFreq = freq;
-    //         }
-    //     }
+        // Check if this is a new frequency
+        if(freq != lastFreq) {
+            currentFreqIdx = findFrequencyIndex(freq);
+            if(currentFreqIdx < 0) {
+                // New frequency, add it
+                currentFreqIdx = numCalibrationFreqs;
+                calibrationData[currentFreqIdx].frequency_hz = freq;
+                numCalibrationFreqs++;
+                lastFreq = freq;
+            }
+        }
 
-    //     // Store calibration point
-    //     CalibrationPoint point(v_gain, i_gain, phase);
-    //     if(tia_mode == 0) {
-    //         calibrationData[currentFreqIdx].low_TIA_gains[pga_gain] = point;
-    //     } else {
-    //         calibrationData[currentFreqIdx].high_TIA_gains[pga_gain] = point;
-    //     }
-    // }
+        // Store calibration point
+        CalibrationPoint point(Z_gain, phase);
+        if(tia_mode == 1) {
+            calibrationData[currentFreqIdx].low_TIA_gains[pga_gain] = point;
+        } else {
+            calibrationData[currentFreqIdx].high_TIA_gains[pga_gain] = point;
+        }
 
-    // file.close();
-    // LittleFS.end();
+        // Serial.printf("Loaded: Freq=%lu, TIA=%d, PGA=%d, Z_gain=%.3f, Phase=%.2f\n",
+        //               freq, tia_mode, pga_gain, Z_gain, phase);
+    }
 
-    // Serial.printf("Loaded calibration data for %d frequencies\n", numCalibrationFreqs);
+    file.close();
+    LittleFS.end();
+
+    Serial.printf("Loaded calibration data for %d frequencies\n", numCalibrationFreqs);
     return true;
 }
 
-bool calibrate(MeasurementPoint& point) {
+bool calibrate(ImpedancePoint& point) {
     CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
+    Serial.printf("Calibrating Freq=%lu, TIA=%d, PGA=%d -> Z_gain=%.3f, Phase=%.2f\n",
+                  point.freq_hz, point.tia_gain, point.pga_gain,
+                  calPoint ? calPoint->impedance_gain : 0.0f,
+                    calPoint ? calPoint->phase_offset : 0.0f);
     if(calPoint) {
         // Apply calibration
         // point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
-        point.V_magnitude = point.V_magnitude / calPoint->voltage_gain;
-        point.I_magnitude = point.I_magnitude / calPoint->current_gain;
-        point.phase_deg -= calPoint->phase_offset;
+        point.Z_magnitude = point.Z_magnitude * calPoint->impedance_gain;
+        point.Z_phase -= calPoint->phase_offset;
         return true;
     } else {
         return false; // Calibration point not found

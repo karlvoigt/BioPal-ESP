@@ -9,23 +9,20 @@ class CalibrationPoint
 {
     private:
     public:
-        float voltage_gain; // V gain
-        float current_gain; // I gain
+        float impedance_gain; // Impedance gain
         float phase_offset; // Phase offset in degrees
 
-        CalibrationPoint() : voltage_gain(1.0), current_gain(1.0), phase_offset(0.0) {}
+        CalibrationPoint() : impedance_gain(1.0), phase_offset(0.0) {}
         
-        CalibrationPoint(float V_gain, float I_gain, float phase)
+        CalibrationPoint(float Z_gain, float phase)
         {
-            voltage_gain = V_gain;
-            current_gain = I_gain;
+            impedance_gain = Z_gain;
             phase_offset = phase;
         }
 
-        void setCalibrationPoint(float V_gain, float I_gain, float phase)
+        void setCalibrationPoint(float Z_gain, float phase)
         {
-            voltage_gain = V_gain;
-            current_gain = I_gain;
+            impedance_gain = Z_gain;
             phase_offset = phase;
         }
 };
@@ -70,12 +67,12 @@ extern FreqCalibrationData calibrationData[MAX_CAL_FREQUENCIES];
 extern int numCalibrationFreqs;
 
 // Calibration arrays
-extern float v_phase_shifts[MAX_CAL_FREQUENCIES];
-extern float v_gain[MAX_CAL_FREQUENCIES];
-extern float I_low_phase_shift[MAX_CAL_FREQUENCIES];
-extern float I_low_gain[MAX_CAL_FREQUENCIES];
-extern float I_high_phase_shift[MAX_CAL_FREQUENCIES];
-extern float I_high_gain[MAX_CAL_FREQUENCIES];
+// extern float v_phase_shifts[MAX_CAL_FREQUENCIES];
+// extern float v_gain[MAX_CAL_FREQUENCIES];
+// extern float I_low_phase_shift[MAX_CAL_FREQUENCIES];
+// extern float I_low_gain[MAX_CAL_FREQUENCIES];
+// extern float I_high_phase_shift[MAX_CAL_FREQUENCIES];
+// extern float I_high_gain[MAX_CAL_FREQUENCIES];
 
 /*=========================CALIBRATION FUNCTIONS=========================*/
 
@@ -92,6 +89,6 @@ CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGai
 int findFrequencyIndex(uint32_t freq);
 
 // Apply calibration to measured voltage, current, and phase
-bool calibrate(MeasurementPoint& point);
+bool calibrate(ImpedancePoint& point);
 
 #endif // CALIBRATION_H
