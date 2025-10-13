@@ -10,6 +10,8 @@ import numpy as np
 import csv
 import sys
 import os
+import tkinter as tk
+from tkinter import filedialog
 
 class ImpedanceComparison:
     def __init__(self):
@@ -17,73 +19,162 @@ class ImpedanceComparison:
         self.bp_data = None
 
     def parse_palmsens_csv(self, filepath):
-        """Parse PalmSens PS Trace CSV format"""
+        """Parse PalmSens PS Trace CSV format (supports multiple runs for averaging)"""
         print(f"Loading PalmSens CSV: {filepath}")
 
-        # Try different encodings (UTF-8 first as it's most common for CSV)
-        for encoding in ['utf-8', 'latin-1', 'utf-16-le', 'utf-16']:
+        # Try different encodings (UTF-16 first as PalmSens often uses it)
+        # Note: latin-1 must be last as it accepts almost anything but may mangle text
+        for encoding in ['utf-16', 'utf-16-le', 'utf-8-sig', 'utf-8', 'latin-1']:
             try:
                 with open(filepath, 'r', encoding=encoding) as f:
                     lines = f.readlines()
-                print(f"  Successfully decoded with {encoding} encoding")
-                break
-            except UnicodeDecodeError:
+                # Verify we got actual text (not mangled)
+                if lines and any('freq' in line.lower() for line in lines):
+                    print(f"  Successfully decoded with {encoding} encoding")
+                    break
+            except (UnicodeDecodeError, UnicodeError):
                 continue
         else:
             raise ValueError("Could not decode CSV file with any known encoding")
 
-        # Find the data start (header line with "freq")
-        data_start = 0
-        for i, line in enumerate(lines):
-            if 'freq' in line.lower() and 'hz' in line.lower():
-                print(f"  Found header at line {i+1}: {line.strip()[:60]}...")
-                data_start = i + 1
-                break
+        # Find all data sections (multiple runs)
+        all_runs = []
+        i = 0
 
-        if data_start == 0:
-            print("  ERROR: Could not find header line containing 'freq' and 'hz'")
+        while i < len(lines):
+            line_lower = lines[i].lower()
+            # Look for header with freq/hz AND (phase OR z/impedance)
+            if ('freq' in line_lower and 'hz' in line_lower and
+                ('phase' in line_lower or 'z' in line_lower or 'ohm' in line_lower)):
+
+                print(f"  Found data section header at line {i+1}")
+
+                # Found a data section header, parse this run
+                run_freq = []
+                run_z_mag = []
+                run_phase = []
+                i += 1  # Move to first data line
+
+                while i < len(lines):
+                    line = lines[i].strip()
+
+                    # Check if we hit another header (new run) or end of data
+                    line_lower = line.lower()
+                    if ('freq' in line_lower and 'hz' in line_lower and
+                        ('phase' in line_lower or 'z' in line_lower or 'ohm' in line_lower)):
+                        # Found next run header, don't increment i
+                        break
+
+                    # Skip empty lines, BOM characters, or lines with only commas
+                    if not line or line.startswith('\ufeff') or line.startswith('�') or line.replace(',', '').strip() == '':
+                        i += 1
+                        continue
+
+                    parts = [p.strip() for p in line.split(',')]
+                    if len(parts) < 4:
+                        i += 1
+                        continue
+
+                    try:
+                        # Column 0: Frequency
+                        # Column 1: Phase (negative)
+                        # Column 3: Z magnitude
+                        f = float(parts[0])
+                        p = float(parts[1])
+                        z = float(parts[3])
+
+                        # Skip if frequency or impedance is 0 or negative
+                        if f <= 0 or z <= 0:
+                            i += 1
+                            continue
+
+                        run_freq.append(f)
+                        run_phase.append(-p)  # Negate the phase
+                        run_z_mag.append(z)
+                    except (ValueError, IndexError):
+                        pass
+
+                    i += 1
+
+                if run_freq:
+                    all_runs.append({
+                        'freq': run_freq,
+                        'z_mag': run_z_mag,
+                        'phase': run_phase
+                    })
+            else:
+                i += 1
+
+        if len(all_runs) == 0:
+            print("  ERROR: Could not find data header in PalmSens CSV")
             print(f"  First 10 lines of file:")
             for i, line in enumerate(lines[:10]):
                 print(f"    Line {i+1}: {line.strip()[:80]}")
             raise ValueError("Could not find data header in PalmSens CSV")
 
-        # Parse data rows
+        num_runs = len(all_runs)
+        print(f"  Detected {num_runs} measurement run(s)")
+
+        # If multiple runs, average them
+        if num_runs > 1:
+            print(f"  Averaging {num_runs} runs...")
+            averaged_data = self._average_palmsens_runs(all_runs)
+            print(f"  ✓ Loaded and averaged {len(averaged_data['freq'])} data points")
+        else:
+            freq = np.array(all_runs[0]['freq'])
+            z_mag = np.array(all_runs[0]['z_mag'])
+            phase = np.array(all_runs[0]['phase'])
+
+            # Normalize phase to -180 to +180
+            phase = np.arctan2(np.sin(np.radians(phase)), np.cos(np.radians(phase)))
+            phase = np.degrees(phase)
+
+            averaged_data = {'freq': freq, 'z_mag': z_mag, 'phase': phase}
+            print(f"  ✓ Loaded {len(freq)} data points")
+
+        # Print data range for debugging
+        print(f"  Frequency range: {averaged_data['freq'].min():.1f} Hz to {averaged_data['freq'].max():.1f} Hz")
+        print(f"  Magnitude range: {averaged_data['z_mag'].min():.1f} Ω to {averaged_data['z_mag'].max():.1f} Ω")
+        print(f"  Phase range: {averaged_data['phase'].min():.2f}° to {averaged_data['phase'].max():.2f}°")
+
+        return averaged_data
+
+    def _average_palmsens_runs(self, runs):
+        """Average multiple PalmSens measurement runs using circular mean for phase"""
+        # Group measurements by frequency
+        freq_to_measurements = {}
+
+        for run in runs:
+            for f, z, p in zip(run['freq'], run['z_mag'], run['phase']):
+                freq_hz = int(f)  # Round to integer for grouping
+                if freq_hz not in freq_to_measurements:
+                    freq_to_measurements[freq_hz] = {'freq': [], 'z_mag': [], 'phase': []}
+                freq_to_measurements[freq_hz]['freq'].append(f)
+                freq_to_measurements[freq_hz]['z_mag'].append(z)
+                freq_to_measurements[freq_hz]['phase'].append(p)
+
+        # Average each frequency
         freq = []
         z_mag = []
         phase = []
 
-        for line in lines[data_start:]:
-            line = line.strip()
-            if not line or line.startswith('�'):
-                continue
+        for freq_hz in sorted(freq_to_measurements.keys()):
+            measurements = freq_to_measurements[freq_hz]
 
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) < 4:
-                continue
+            # Average frequency and magnitude (arithmetic mean)
+            avg_freq = np.mean(measurements['freq'])
+            avg_magnitude = np.mean(measurements['z_mag'])
 
-            try:
-                # Column 0: Frequency
-                # Column 1: Phase (negative)
-                # Column 3: Z magnitude
-                f = float(parts[0])
-                p = float(parts[1])
-                z = float(parts[3])
+            # Average phase (circular mean)
+            phases = measurements['phase']
+            angles_rad = np.radians(phases)
+            sin_mean = np.mean(np.sin(angles_rad))
+            cos_mean = np.mean(np.cos(angles_rad))
+            avg_phase = np.degrees(np.arctan2(sin_mean, cos_mean))
 
-                freq.append(f)
-                phase.append(-p)
-                z_mag.append(z)
-            except (ValueError, IndexError):
-                continue
-
-        if len(freq) == 0:
-            raise ValueError("No valid data found in PalmSens CSV")
-
-        print(f"  ✓ Loaded {len(freq)} data points")
-
-        # Print data range for debugging
-        print(f"  Frequency range: {min(freq):.1f} Hz to {max(freq):.1f} Hz")
-        print(f"  Magnitude range: {min(z_mag):.1f} Ω to {max(z_mag):.1f} Ω")
-        print(f"  Phase range: {min(phase):.2f}° to {max(phase):.2f}°")
+            freq.append(avg_freq)
+            z_mag.append(avg_magnitude)
+            phase.append(avg_phase)
 
         return {
             'freq': np.array(freq),
@@ -278,19 +369,48 @@ def main():
         ps_file = sys.argv[1]
         bp_file = sys.argv[2]
     else:
-        print("Usage: python impedance_comparison_gui.py <palmsens_csv> <biopal_csv>")
-        print("\nOr run without arguments for interactive mode:\n")
+        print("No command line arguments provided.")
+        print("Opening file dialogues...\n")
 
-        # Interactive mode - ask for filenames
-        ps_file = input("Enter PalmSens CSV file path: ").strip()
+        # Create hidden root window for file dialogues
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+
+        # File dialogue for PalmSens CSV
+        print("Select PalmSens CSV file...")
+        ps_file = filedialog.askopenfilename(
+            title="Select PalmSens CSV File",
+            filetypes=[
+                ("CSV files", "*.csv"),
+                ("All files", "*.*")
+            ]
+        )
+
         if not ps_file:
-            print("No file specified, exiting.")
+            print("No PalmSens file selected, exiting.")
+            root.destroy()
             return
 
-        bp_file = input("Enter BioPal CSV file path: ").strip()
+        print(f"Selected PalmSens file: {ps_file}")
+
+        # File dialogue for BioPal CSV
+        print("\nSelect BioPal CSV file...")
+        bp_file = filedialog.askopenfilename(
+            title="Select BioPal CSV File",
+            filetypes=[
+                ("CSV files", "*.csv"),
+                ("All files", "*.*")
+            ]
+        )
+
         if not bp_file:
-            print("No file specified, exiting.")
+            print("No BioPal file selected, exiting.")
+            root.destroy()
             return
+
+        print(f"Selected BioPal file: {bp_file}\n")
+
+        root.destroy()
 
     # Check files exist
     if not os.path.exists(ps_file):

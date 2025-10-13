@@ -297,6 +297,13 @@ typedef enum {
 FreqCalibrationData calibrationData[MAX_CAL_FREQUENCIES];
 int numCalibrationFreqs = 0;
 
+// Calibration coefficients: [TIA_mode][PGA_gain]
+CalibrationCoefficients calibrationCoefficients[2][8];
+
+// Current calibration mode (default to lookup table)
+CalibrationMode calibrationMode = CALIBRATION_MODE_LOOKUP;
+// CalibrationMode calibrationMode = CALIBRATION_MODE_FORMULA;
+
 /*=========================HELPER FUNCTIONS=========================*/
 
 // Find the index of a frequency in the calibration data
@@ -421,19 +428,159 @@ bool loadCalibrationData() {
     return true;
 }
 
-bool calibrate(ImpedancePoint& point) {
-    CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
-    Serial.printf("Calibrating Freq=%lu, TIA=%d, PGA=%d -> Z_gain=%.3f, Phase=%.2f\n",
-                  point.freq_hz, point.tia_gain, point.pga_gain,
-                  calPoint ? calPoint->impedance_gain : 0.0f,
-                    calPoint ? calPoint->phase_offset : 0.0f);
-    if(calPoint) {
-        // Apply calibration
-        // point.V_magnitude = point.V_magnitude / 64.0 * (2.0*3.3)/4096.0 / calPoint->voltage_gain;
-        point.Z_magnitude = point.Z_magnitude * calPoint->impedance_gain;
-        point.Z_phase -= calPoint->phase_offset;
-        return true;
-    } else {
-        return false; // Calibration point not found
+// Load calibration coefficients from filesystem
+// CSV Format: tia_mode,pga_gain_index,m0,m1,m2,a1,a2,r_squared_mag,r_squared_phase
+// tia_mode: 0=high (7500Ω), 1=low (37.5Ω)
+// pga_gain_index: 0-7 (1, 2, 5, 10, 20, 50, 100, 200)
+bool loadCalibrationCoefficients() {
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS");
+        return false;
     }
+
+    // Open coefficients file
+    File file = LittleFS.open("/calibration_coefficients.csv", "r");
+    if(!file) {
+        Serial.println("Failed to open calibration_coefficients.csv");
+        LittleFS.end();
+        return false;
+    }
+
+    int coeffCount = 0;
+
+    // Read file line by line
+    while(file.available()) {
+        String line = file.readStringUntil('\n');
+        line.trim();
+
+        // Skip empty lines and comments
+        if(line.length() == 0 || line.startsWith("#")) {
+            continue;
+        }
+
+        // Parse CSV line: tia_mode,pga_gain_index,m0,m1,m2,a1,a2,r_squared_mag,r_squared_phase
+        int tia_mode = 0;
+        int pga_gain = 0;
+        float m0 = 1.0, m1 = 0.0, m2 = 0.0;
+        float a1 = 0.0, a2 = 0.0;
+        float r_sq_mag = 0.0, r_sq_phase = 0.0;
+
+        int fieldCount = sscanf(line.c_str(), "%d,%d,%f,%f,%f,%f,%f,%f,%f",
+                                &tia_mode, &pga_gain, &m0, &m1, &m2, &a1, &a2,
+                                &r_sq_mag, &r_sq_phase);
+
+        if(fieldCount != 9) {
+            Serial.printf("Invalid coefficient line (expected 9 fields, got %d): %s\n", fieldCount, line.c_str());
+            continue;
+        }
+
+        // Validate ranges
+        if(tia_mode < 0 || tia_mode > 1 || pga_gain < 0 || pga_gain > 7) {
+            Serial.printf("Invalid TIA mode or PGA gain: %s\n", line.c_str());
+            continue;
+        }
+
+        // Store coefficients
+        calibrationCoefficients[tia_mode][pga_gain].m0 = m0;
+        calibrationCoefficients[tia_mode][pga_gain].m1 = m1;
+        calibrationCoefficients[tia_mode][pga_gain].m2 = m2;
+        calibrationCoefficients[tia_mode][pga_gain].a1 = a1;
+        calibrationCoefficients[tia_mode][pga_gain].a2 = a2;
+        calibrationCoefficients[tia_mode][pga_gain].r_squared_mag = r_sq_mag;
+        calibrationCoefficients[tia_mode][pga_gain].r_squared_phase = r_sq_phase;
+        calibrationCoefficients[tia_mode][pga_gain].valid = true;
+
+        coeffCount++;
+
+        // Serial.printf("Loaded: TIA=%d, PGA=%d, m0=%.6f, m1=%.6e, m2=%.6e, a1=%.6e, a2=%.6e\n",
+        //               tia_mode, pga_gain, m0, m1, m2, a1, a2);
+    }
+
+    file.close();
+    LittleFS.end();
+
+    Serial.printf("Loaded %d calibration coefficient sets\n", coeffCount);
+    return coeffCount > 0;
+}
+
+// Apply calibration using quadratic formula
+// Formula: |Z_x| = |Z_nc| / (m0 + m1*f + m2*f²)
+//          arg(Z_x) = arg(Z_nc) - (a1*f + a2*f²)
+bool calibrateWithFormula(ImpedancePoint& point) {
+    // Validate PGA gain
+    if(point.pga_gain > 7) {
+        Serial.printf("Invalid PGA gain: %d\n", point.pga_gain);
+        return false;
+    }
+
+    // Determine TIA mode index (0=high, 1=low)
+    int tia_mode = point.tia_gain ? 1 : 0;
+
+    // Get coefficients
+    CalibrationCoefficients& coeff = calibrationCoefficients[tia_mode][point.pga_gain];
+
+    // Check if coefficients are valid
+    if(!coeff.valid) {
+        Serial.printf("No coefficients for TIA=%d, PGA=%d\n", tia_mode, point.pga_gain);
+        return false;
+    }
+
+    // Convert frequency to Hz (already in Hz from ImpedancePoint)
+    float f = (float)point.freq_hz;
+
+    // Calculate magnitude correction factor: (m0 + m1*f + m2*f²)
+    float mag_factor = coeff.m0 + coeff.m1 * f + coeff.m2 * f * f;
+
+    // Calculate phase correction: (a1*f + a2*f²)
+    float phase_correction = coeff.a1 * f + coeff.a2 * f * f;
+
+    // Apply calibration
+    // |Z_x| = |Z_nc| / (m0 + m1*f + m2*f²)
+    point.Z_magnitude = point.Z_magnitude / mag_factor;
+
+    // arg(Z_x) = arg(Z_nc) - (a1*f + a2*f²)
+    point.Z_phase = point.Z_phase - phase_correction;
+
+    Serial.printf("Formula cal: Freq=%lu, TIA=%d, PGA=%d -> mag_factor=%.6f, phase_corr=%.6f\n",
+                  point.freq_hz, tia_mode, point.pga_gain, mag_factor, phase_correction);
+
+    return true;
+}
+
+bool calibrate(ImpedancePoint& point) {
+    // Check calibration mode and route to appropriate method
+    if(calibrationMode == CALIBRATION_MODE_FORMULA) {
+        // Use formula-based calibration
+        return calibrateWithFormula(point);
+    } else {
+        // Use lookup table calibration
+        CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
+        Serial.printf("Lookup cal: Freq=%lu, TIA=%d, PGA=%d -> Z_gain=%.3f, Phase=%.2f\n",
+                      point.freq_hz, point.tia_gain, point.pga_gain,
+                      calPoint ? calPoint->impedance_gain : 0.0f,
+                      calPoint ? calPoint->phase_offset : 0.0f);
+        if(calPoint) {
+            // Apply calibration
+            point.Z_magnitude = point.Z_magnitude * calPoint->impedance_gain;
+            point.Z_phase -= calPoint->phase_offset;
+            return true;
+        } else {
+            return false; // Calibration point not found
+        }
+    }
+}
+
+/*=========================MODE CONTROL FUNCTIONS=========================*/
+
+// Set calibration mode
+void setCalibrationMode(CalibrationMode mode) {
+    calibrationMode = mode;
+    Serial.printf("Calibration mode set to: %s\n",
+                  mode == CALIBRATION_MODE_FORMULA ? "FORMULA" : "LOOKUP_TABLE");
+}
+
+// Get current calibration mode
+CalibrationMode getCalibrationMode() {
+    return calibrationMode;
 }

@@ -4,6 +4,27 @@
 #include <Arduino.h>
 #include "defines.h"
 
+/*=========================CALIBRATION MODE ENUM=========================*/
+enum CalibrationMode {
+    CALIBRATION_MODE_LOOKUP,    // Use lookup table from calibration.csv
+    CALIBRATION_MODE_FORMULA    // Use quadratic formula with coefficients
+};
+
+/*=========================CALIBRATION COEFFICIENTS STRUCT=========================*/
+struct CalibrationCoefficients {
+    float m0, m1, m2;  // Magnitude coefficients
+    float a1, a2;      // Phase coefficients
+    float r_squared_mag;   // R² for magnitude fit
+    float r_squared_phase; // R² for phase fit
+    bool valid;        // Whether coefficients are loaded
+
+    CalibrationCoefficients() :
+        m0(1.0), m1(0.0), m2(0.0),
+        a1(0.0), a2(0.0),
+        r_squared_mag(0.0), r_squared_phase(0.0),
+        valid(false) {}
+};
+
 /*=========================CALIBRATION POINT CLASS=========================*/
 class CalibrationPoint
 {
@@ -13,7 +34,7 @@ class CalibrationPoint
         float phase_offset; // Phase offset in degrees
 
         CalibrationPoint() : impedance_gain(1.0), phase_offset(0.0) {}
-        
+
         CalibrationPoint(float Z_gain, float phase)
         {
             impedance_gain = Z_gain;
@@ -66,6 +87,14 @@ class FreqCalibrationData
 extern FreqCalibrationData calibrationData[MAX_CAL_FREQUENCIES];
 extern int numCalibrationFreqs;
 
+// Calibration coefficients: [TIA_mode][PGA_gain]
+// TIA_mode: 0=high (7500Ω), 1=low (37.5Ω)
+// PGA_gain: 0-7 (1, 2, 5, 10, 20, 50, 100, 200)
+extern CalibrationCoefficients calibrationCoefficients[2][8];
+
+// Current calibration mode
+extern CalibrationMode calibrationMode;
+
 // Calibration arrays
 // extern float v_phase_shifts[MAX_CAL_FREQUENCIES];
 // extern float v_gain[MAX_CAL_FREQUENCIES];
@@ -80,6 +109,10 @@ extern int numCalibrationFreqs;
 // Returns true on success, false on failure
 bool loadCalibrationData();
 
+// Load calibration coefficients from filesystem (/calibration_coefficients.csv)
+// Returns true on success, false on failure
+bool loadCalibrationCoefficients();
+
 // Get calibration point for specific frequency and gain settings
 // Returns pointer to CalibrationPoint or nullptr if not found
 CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGain);
@@ -88,7 +121,19 @@ CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGai
 // Returns -1 if not found
 int findFrequencyIndex(uint32_t freq);
 
+// Apply calibration using quadratic formula
+// Formula: |Z_x| = |Z_nc| / (m0 + m1*f + m2*f²)
+//          arg(Z_x) = arg(Z_nc) - (a1*f + a2*f²)
+bool calibrateWithFormula(ImpedancePoint& point);
+
 // Apply calibration to measured voltage, current, and phase
+// Uses current calibrationMode to select method
 bool calibrate(ImpedancePoint& point);
+
+// Set calibration mode
+void setCalibrationMode(CalibrationMode mode);
+
+// Get current calibration mode
+CalibrationMode getCalibrationMode();
 
 #endif // CALIBRATION_H
