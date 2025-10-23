@@ -9,6 +9,7 @@
 #include "bode_plot.h"
 #include "csv_export.h"
 #include "serial_commands.h"
+#include "BLE_Functions.h"
 
 /*=========================GLOBAL VARIABLES=========================*/
 // Initialize global impedance data arrays
@@ -80,6 +81,58 @@ void taskDataProcessor(void* parameter) {
     }
 }
 
+/*=========================BLE COMMAND PROCESSING=========================*/
+void processBLECommands() {
+    char cmdBuffer[64];
+
+    // Check for BLE command
+    if (!getBLECommand(cmdBuffer, sizeof(cmdBuffer))) {
+        return;  // No command available
+    }
+
+    Serial.printf("[BLE] Processing command: '%s'\n", cmdBuffer);
+
+    String cmdStr(cmdBuffer);
+
+    // Parse START command
+    if (cmdStr.startsWith("START")) {
+        uint8_t num_duts = parseStartCommand(cmdBuffer);
+
+        if (num_duts == 0) {
+            sendBLEError("Invalid DUT count (must be 1-4)");
+            return;
+        }
+
+        Serial.printf("[BLE] Starting measurement with %d DUT%s...\n", num_duts, num_duts > 1 ? "s" : "");
+
+        // Clear previous measurement data
+        Serial.println("[BLE] Clearing measurement buffers...");
+        for (int i = 0; i < MAX_DUT_COUNT; i++) {
+            frequencyCount[i] = 0;
+            for (int j = 0; j < MAX_FREQUENCIES; j++) {
+                impedanceData[i][j] = ImpedancePoint();
+            }
+        }
+        Serial.println("[BLE] Buffers cleared - ready for new measurement");
+
+        // Send status update
+        sendBLEStatus("Measuring");
+
+        // Start measurement via UART
+        sendStartCommand(num_duts);
+    }
+    // Parse STOP command
+    else if (cmdStr.equals("STOP")) {
+        Serial.println("[BLE] Stopping measurement...");
+        sendStopCommand();
+        sendBLEStatus("Stopped");
+    }
+    else {
+        Serial.printf("[BLE] ERROR: Unknown command '%s'\n", cmdBuffer);
+        sendBLEError("Unknown command");
+    }
+}
+
 /*=========================TASK: GUI=========================*/
 // Task to handle GUI and user interaction
 void taskGUI(void* parameter) {
@@ -106,12 +159,26 @@ void taskGUI(void* parameter) {
         // Process serial commands from computer
         processSerialCommands();
 
+        // Process BLE commands from WebUI
+        processBLECommands();
+
         // Wait for DUT completion event (100ms timeout to allow command processing)
         if (xSemaphoreTake(dutCompleteSem, pdMS_TO_TICKS(100)) == pdTRUE) {
             // DUT just completed - draw Bode plot
             uint8_t dutIndex = getCompletedDUTIndex();
             Serial.printf("Drawing Bode plot for completed DUT %d...\n", dutIndex + 1);
             drawBodePlot(dutIndex);
+
+            // Send DUT start notification via BLE
+            sendBLEDUTStart(dutIndex + 1);
+
+            // Send impedance data via BLE
+            if (sendBLEImpedanceData(dutIndex)) {
+                Serial.printf("[BLE] Sent data for DUT %d\n", dutIndex + 1);
+            }
+
+            // Send DUT end notification via BLE
+            sendBLEDUTEnd(dutIndex + 1);
 
             // Check if all measurements are complete
             if (xSemaphoreTake(measurementCompleteSem, 0) == pdTRUE) {
@@ -123,6 +190,11 @@ void taskGUI(void* parameter) {
         if (allMeasurementsComplete) {
             Serial.println("All measurements complete - exporting CSV data");
             printCSVToSerial();
+
+            // Send completion notification via BLE
+            sendBLEComplete();
+            sendBLEStatus("Complete");
+
             allMeasurementsComplete = false;  // Reset flag
         }
 
@@ -155,6 +227,10 @@ void setup() {
 
     // Initialize UART communication
     initUART(measurementQueue);
+
+    // Initialize BLE communication
+    initBLE();
+    Serial.println("BLE initialized - ready for WebUI connection");
 
     // Create FreeRTOS tasks
     xTaskCreate(taskUARTReader, "UART Reader", 4096, nullptr, 2, nullptr);
