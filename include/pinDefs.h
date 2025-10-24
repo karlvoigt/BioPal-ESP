@@ -10,7 +10,12 @@
 // #define LCD_RST 19
 // #define LCD_BL  18
 
-#define BTN_LEFT  16
+#define BTN_LEFT  14
 #define BTN_RIGHT 17
+#define BTN_UP    16
+#define BTN_DOWN  8
+#define BTN_SELECT 9
+#define ENCODER_A  19
+#define ENCODER_B  20
 
 #endif // PIN_DEFS_H

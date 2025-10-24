@@ -3,8 +3,8 @@
 #include <TFT_eSPI.h>
 #include <math.h>
 
-// TFT instance
-static TFT_eSPI tft = TFT_eSPI();
+// TFT instance (shared with gui_screens.cpp)
+TFT_eSPI tft = TFT_eSPI();
 
 // Screen dimensions (landscape orientation)
 #define SCREEN_WIDTH  320

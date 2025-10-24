@@ -10,6 +10,9 @@
 #include "csv_export.h"
 #include "serial_commands.h"
 #include "BLE_Functions.h"
+#include "gui_state.h"
+#include "gui_screens.h"
+#include "button_handler.h"
 
 /*=========================GLOBAL VARIABLES=========================*/
 // Initialize global impedance data arrays
@@ -192,8 +195,19 @@ void taskGUI(void* parameter) {
     initBodePlot();
     Serial.println("TFT display initialized");
 
-    // Wait a bit for system to stabilize
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    // Initialize GUI state machine
+    initGUIState();
+
+    // Initialize button interrupts
+    initButtons();
+    Serial.println("Button interrupts initialized");
+
+    // Draw splash screen
+    renderCurrentScreen();
+
+    // Splash screen timer (2 seconds)
+    unsigned long splashStartTime = millis();
+    bool splashDone = false;
 
     Serial.println("\n=== BioPal ESP32 Ready ===");
     Serial.println("Type 'help' for available commands\n");
@@ -201,23 +215,40 @@ void taskGUI(void* parameter) {
     // Get semaphore handles
     SemaphoreHandle_t dutCompleteSem = getDUTCompleteSemaphore();
     SemaphoreHandle_t measurementCompleteSem = getMeasurementCompleteSemaphore();
+    QueueHandle_t btnEventQueue = getButtonEventQueue();
 
     bool allMeasurementsComplete = false;
 
     // Main GUI event loop
     while (true) {
+        // Auto-advance from splash screen after 2 seconds
+        if (!splashDone && getGUIState() == GUI_SPLASH) {
+            if (millis() - splashStartTime >= 2000) {
+                setGUIState(GUI_HOME);
+                splashDone = true;
+            }
+        }
+
         // Process serial commands from computer
         processSerialCommands();
 
         // Process BLE commands from WebUI
         processBLECommands();
 
-        // Wait for DUT completion event (100ms timeout to allow command processing)
-        if (xSemaphoreTake(dutCompleteSem, pdMS_TO_TICKS(100)) == pdTRUE) {
-            // DUT just completed - draw Bode plot
+        // Handle button/encoder input
+        ButtonEvent event;
+        if (xQueueReceive(btnEventQueue, &event, 0) == pdTRUE) {
+            handleGUIInput(event);
+        }
+
+        // Wait for DUT completion event (10ms timeout for responsive UI)
+        if (xSemaphoreTake(dutCompleteSem, pdMS_TO_TICKS(10)) == pdTRUE) {
+            // DUT just completed
             uint8_t dutIndex = getCompletedDUTIndex();
-            Serial.printf("Drawing Bode plot for completed DUT %d...\n", dutIndex + 1);
-            drawBodePlot(dutIndex);
+            Serial.printf("DUT %d completed\n", dutIndex + 1);
+
+            // Update progress screen
+            updateProgressScreen(dutIndex);
 
             // Send DUT start notification via BLE
             sendBLEDUTStart(dutIndex + 1);
@@ -237,9 +268,11 @@ void taskGUI(void* parameter) {
                 if (!baselineMeasurementDone) {
                     baselineMeasurementDone = true;
                     Serial.println("Baseline measurement completed");
+                    setGUIState(GUI_BASELINE_COMPLETE);
                 } else {
                     finalMeasurementDone = true;
                     Serial.println("Final measurement completed");
+                    setGUIState(GUI_RESULTS);
                 }
             }
         }
