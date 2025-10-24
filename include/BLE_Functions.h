@@ -33,6 +33,10 @@
 // Sets up callbacks for connection and command reception
 void initBLE();
 
+// Reset BLE stack completely (deinit + reinit)
+// Use this if BLE gets into stuck state
+void resetBLE();
+
 /*=========================BLE CONNECTION STATUS=========================*/
 // Check if a BLE client is currently connected
 bool isBLEConnected();

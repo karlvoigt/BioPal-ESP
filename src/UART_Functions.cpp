@@ -123,7 +123,7 @@ void processBufferedBytes() {
 
 /*=========================COMMAND SENDING=========================*/
 
-void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3) {
+bool sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3) {
     uint8_t packet[UART_CMD_PACKET_SIZE];
 
     // Build command packet (little-endian)
@@ -153,9 +153,10 @@ void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data
     // Send packet
     UARTSerial.write(packet, UART_CMD_PACKET_SIZE);
     UARTSerial.flush();
+    return true;
 }
 
-void sendStartCommand() {
+bool sendStartCommand() {
     Serial.println("Sending START command to STM32 (4 DUTs)");
     totalExpectedDUTs = 4;
     completedDUTCount = 0;
@@ -166,7 +167,7 @@ void sendStartCommand() {
 
         if (waitForAck(CMD_START_MEASUREMENT, 1000)) {
             Serial.println("START command acknowledged");
-            return;  // Success
+            return true;  // Success
         }
 
         Serial.printf("Retry %d/3...\n", attempt + 1);
@@ -174,9 +175,10 @@ void sendStartCommand() {
     }
 
     Serial.println("ERROR: START command failed after 3 attempts");
+    return false;
 }
 
-void sendStartCommand(uint8_t num_duts) {
+bool sendStartCommand(uint8_t num_duts) {
     Serial.printf("Sending START command to STM32 (%d DUT%s)\n", num_duts, num_duts > 1 ? "s" : "");
     totalExpectedDUTs = num_duts;
     completedDUTCount = 0;  // Reset counter
@@ -187,7 +189,7 @@ void sendStartCommand(uint8_t num_duts) {
 
         if (waitForAck(CMD_START_MEASUREMENT, 1000)) {
             Serial.println("START command acknowledged");
-            return;  // Success
+            return true;  // Success
         }
 
         Serial.printf("Retry %d/3...\n", attempt + 1);
@@ -195,9 +197,10 @@ void sendStartCommand(uint8_t num_duts) {
     }
 
     Serial.println("ERROR: START command failed after 3 attempts");
+    return false;
 }
 
-void sendStopCommand() {
+bool sendStopCommand() {
     Serial.println("Sending STOP command to STM32");
 
     // Retry up to 3 times if no ACK
@@ -206,7 +209,7 @@ void sendStopCommand() {
 
         if (waitForAck(CMD_END_MEASUREMENT, 1000)) {
             Serial.println("STOP command acknowledged");
-            return;  // Success
+            return true;  // Success
         }
 
         Serial.printf("Retry %d/3...\n", attempt + 1);
@@ -214,21 +217,25 @@ void sendStopCommand() {
     }
 
     Serial.println("ERROR: STOP command failed after 3 attempts");
+    return false;
 }
 
-void sendSetPGAGainCommand(uint8_t gain) {
+bool sendSetPGAGainCommand(uint8_t gain) {
     Serial.printf("Sending SET_PGA_GAIN command: %d\n", gain);
     sendCommand(CMD_SET_PGA_GAIN, gain, 0, 0);
+    return true;
 }
 
-void sendSetMuxChannelCommand(uint8_t channel) {
+bool sendSetMuxChannelCommand(uint8_t channel) {
     Serial.printf("Sending SET_MUX_CHANNEL command: %d\n", channel);
     sendCommand(CMD_SET_MUX_CHANNEL, channel, 0, 0);
+    return true;
 }
 
-void sendSetTIAGainCommand(uint8_t low_gain) {
+bool sendSetTIAGainCommand(uint8_t low_gain) {
     Serial.printf("Sending SET_TIA_GAIN command: %s\n", low_gain ? "LOW" : "HIGH");
     sendCommand(CMD_SET_TIA_GAIN, low_gain, 0, 0);
+    return true;
 }
 
 /*=========================HELPER FUNCTIONS=========================*/

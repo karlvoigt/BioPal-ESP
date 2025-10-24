@@ -115,11 +115,14 @@ void processBLECommands() {
         }
         Serial.println("[BLE] Buffers cleared - ready for new measurement");
 
-        // Send status update
-        sendBLEStatus("Measuring");
-
         // Start measurement via UART
-        sendStartCommand(num_duts);
+        if (sendStartCommand(num_duts)) {
+            // Send status update
+            sendBLEStatus("Measuring");
+        } else {
+            sendBLEError("Failed to start measurement");
+        }
+
     }
     // Parse STOP command
     else if (cmdStr.equals("STOP")) {

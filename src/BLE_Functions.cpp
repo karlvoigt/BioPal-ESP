@@ -30,8 +30,8 @@ class BioPalServerCallbacks: public BLEServerCallbacks {
         Serial.println("[BLE] Client disconnected");
         Serial.println("[BLE] Restarting advertising...");
 
-        // Restart advertising after disconnect
-        delay(500); // Give bluetooth stack time
+        // Simple: just restart advertising (don't deinit - it breaks callback)
+        delay(500);
         pServer->startAdvertising();
         Serial.println("[BLE] Advertising restarted");
     }
@@ -64,7 +64,10 @@ void initBLE() {
     // Create BLE server
     pServer = BLEDevice::createServer();
     pServer->setCallbacks(new BioPalServerCallbacks());
-    Serial.println("[BLE] Server created");
+
+    // Set MTU size for larger packets
+    BLEDevice::setMTU(517);
+    Serial.println("[BLE] Server created with MTU=517");
 
     // Create BLE service
     BLEService* pService = pServer->createService(BLE_SERVICE_UUID);
@@ -93,12 +96,19 @@ void initBLE() {
     pService->start();
     Serial.println("[BLE] Service started");
 
+    // Allow BLE stack to stabilize before advertising
+    delay(500);
+    Serial.println("[BLE] BLE stack stabilized");
+
     // Start advertising
     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
     pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x0006);  // 7.5ms
-    pAdvertising->setMaxPreferred(0x0012);  // 22.5ms
+
+    // Set advertising interval for fast discovery (20-40ms)
+    pAdvertising->setMinInterval(0x20);  // 20ms (0x20 * 0.625ms)
+    pAdvertising->setMaxInterval(0x40);  // 40ms (0x40 * 0.625ms)
+
     BLEDevice::startAdvertising();
 
     Serial.println("[BLE] ========================================");
@@ -106,6 +116,20 @@ void initBLE() {
     Serial.printf("[BLE] Device Name: %s\n", BLE_DEVICE_NAME);
     Serial.println("[BLE] Waiting for client connection...");
     Serial.println("[BLE] ========================================");
+}
+
+/*=========================BLE RESET=========================*/
+void resetBLE() {
+    Serial.println("[BLE] Manual BLE reset requested");
+    Serial.println("[BLE] Deinitializing BLE stack...");
+
+    BLEDevice::deinit(true);  // Complete teardown
+    delay(1000);  // Allow full shutdown
+
+    Serial.println("[BLE] Reinitializing BLE...");
+    initBLE();
+
+    Serial.println("[BLE] BLE reset complete");
 }
 
 /*=========================CONNECTION STATUS=========================*/
@@ -180,12 +204,40 @@ bool sendBLEString(const char* data) {
         return false;
     }
 
-    // BLE has MTU limit (typically 23-512 bytes depending on negotiation)
-    // For large data, we might need to chunk it, but for now send as-is
-    pTxCharacteristic->setValue((uint8_t*)data, len);
-    pTxCharacteristic->notify();
+    // BLE MTU limit - use conservative chunk size
+    const size_t MAX_CHUNK_SIZE = 400;
 
-    Serial.printf("[BLE] Sent (%d bytes): %s\n", len, data);
+    if (len <= MAX_CHUNK_SIZE) {
+        // Small enough to send in one packet
+        pTxCharacteristic->setValue((uint8_t*)data, len);
+        pTxCharacteristic->notify();
+        Serial.printf("[BLE] Sent (%d bytes): %s\n", len, data);
+        return true;
+    }
+
+    // Need to chunk the data
+    Serial.printf("[BLE] Data too large (%d bytes), chunking...\n", len);
+
+    size_t offset = 0;
+    int chunkNum = 0;
+
+    while (offset < len) {
+        size_t chunkSize = min(MAX_CHUNK_SIZE, len - offset);
+
+        // Send chunk
+        pTxCharacteristic->setValue((uint8_t*)(data + offset), chunkSize);
+        pTxCharacteristic->notify();
+
+        Serial.printf("[BLE] Sent chunk %d (%d bytes)\n", chunkNum, chunkSize);
+
+        offset += chunkSize;
+        chunkNum++;
+
+        // Small delay between chunks to avoid overwhelming receiver
+        delay(20);
+    }
+
+    Serial.printf("[BLE] Sent %d chunks (total %d bytes)\n", chunkNum, len);
     return true;
 }
 
@@ -241,7 +293,7 @@ bool sendBLEImpedanceData(uint8_t dutIndex) {
 
         if (point.valid) {
             freqArray.add(point.freq_hz);
-            magArray.add(serialized(String(point.Z_magnitude, 6)));  // 6 decimal places
+            magArray.add(serialized(String(point.Z_magnitude, 3)));  // 3 decimal places (reduced for smaller JSON)
             phaseArray.add(serialized(String(point.Z_phase, 2)));     // 2 decimal places
         }
     }

@@ -78,25 +78,25 @@ void processBufferedBytes();
 
 /*=========================COMMAND SENDING=========================*/
 // Send start measurement command to STM32 (default 4 DUTs)
-void sendStartCommand();
+bool sendStartCommand();
 
 // Send start measurement command with specific number of DUTs (1-4)
-void sendStartCommand(uint8_t num_duts);
+bool sendStartCommand(uint8_t num_duts);
 
 // Send stop measurement command to STM32
-void sendStopCommand();
+bool sendStopCommand();
 
 // Send set PGA gain command
-void sendSetPGAGainCommand(uint8_t gain);
+bool sendSetPGAGainCommand(uint8_t gain);
 
 // Send set MUX channel command
-void sendSetMuxChannelCommand(uint8_t channel);
+bool sendSetMuxChannelCommand(uint8_t channel);
 
 // Send set TIA gain command (0 = high gain, 1 = low gain)
-void sendSetTIAGainCommand(uint8_t low_gain);
+bool sendSetTIAGainCommand(uint8_t low_gain);
 
 // Generic command sender
-void sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3);
+bool sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data3);
 
 // Wait for ACK packet from STM32 for a specific command
 // Returns true if ACK received within timeout, false otherwise
