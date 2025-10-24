@@ -362,6 +362,10 @@ CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGai
 // tia_mode: 0=low, 1=high
 // pga_gain: 0-7
 bool loadCalibrationData() {
+
+    if (calibrationMode == CALIBRATION_MODE_SEPARATE_FILES) {
+        return (loadVoltageCalibration() && loadTIACalibration() && loadPGACalibration());
+    }
     // Initialize LittleFS
     if(!LittleFS.begin(true)) {
         Serial.println("Failed to mount LittleFS");
@@ -685,11 +689,11 @@ bool loadVoltageCalibration() {
         }
 
         // Parse CSV line: freq,gain,phase_offset
-        uint32_t freq = 0;
+        float freq_khz = 0;
         float gain = 1.0;
         float phase = 0.0;
 
-        int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+        int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq_khz, &gain, &phase);
 
         if(fieldCount != 3) {
             Serial.printf("Invalid voltage cal line: %s\n", line.c_str());
@@ -697,7 +701,7 @@ bool loadVoltageCalibration() {
         }
 
         // Store calibration point
-        voltageCalData[numVoltageFreqs] = FreqCalPoint(round(freq*1000), gain, phase);
+        voltageCalData[numVoltageFreqs] = FreqCalPoint(round(freq_khz*1000), gain, phase);
         numVoltageFreqs++;
     }
 
@@ -737,11 +741,11 @@ bool loadTIACalibration() {
             }
 
             // Parse CSV line: freq,gain,phase_offset
-            uint32_t freq = 0;
+            float freq_khz = 0;
             float gain = 1.0;
             float phase = 0.0;
 
-            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq_khz, &gain, &phase);
 
             if(fieldCount != 3) {
                 Serial.printf("Invalid TIA high cal line: %s\n", line.c_str());
@@ -749,7 +753,7 @@ bool loadTIACalibration() {
             }
 
             // Store calibration point
-            tiaHighCalData[numTIAHighFreqs] = FreqCalPoint(round(freq*1000), gain, phase);
+            tiaHighCalData[numTIAHighFreqs] = FreqCalPoint(round(freq_khz*1000), gain, phase);
             numTIAHighFreqs++;
         }
 
@@ -775,11 +779,11 @@ bool loadTIACalibration() {
             }
 
             // Parse CSV line: freq,gain,phase_offset
-            uint32_t freq = 0;
+            float freq_khz = 0;
             float gain = 1.0;
             float phase = 0.0;
 
-            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq_khz, &gain, &phase);
 
             if(fieldCount != 3) {
                 Serial.printf("Invalid TIA low cal line: %s\n", line.c_str());
@@ -787,7 +791,7 @@ bool loadTIACalibration() {
             }
 
             // Store calibration point
-            tiaLowCalData[numTIALowFreqs] = FreqCalPoint(round(freq*1000), gain, phase);
+            tiaLowCalData[numTIALowFreqs] = FreqCalPoint(round(freq_khz*1000), gain, phase);
             numTIALowFreqs++;
         }
 
@@ -844,11 +848,11 @@ bool loadPGACalibration() {
             }
 
             // Parse CSV line: freq,gain,phase_offset
-            uint32_t freq = 0;
+            float freq_khz = 0;
             float gain = 1.0;
             float phase = 0.0;
 
-            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq_khz, &gain, &phase);
 
             if(fieldCount != 3) {
                 Serial.printf("Invalid PGA cal line in %s: %s\n", pgaFiles[pgaIdx], line.c_str());
@@ -856,7 +860,7 @@ bool loadPGACalibration() {
             }
 
             // Store calibration point
-            pgaCalData[pgaIdx][numPGAFreqs[pgaIdx]] = FreqCalPoint(round(freq*1000), gain, phase);
+            pgaCalData[pgaIdx][numPGAFreqs[pgaIdx]] = FreqCalPoint(round(freq_khz*1000), gain, phase);
             numPGAFreqs[pgaIdx]++;
         }
 
