@@ -2,7 +2,6 @@
 #define GUI_SCREENS_H
 
 #include <Arduino.h>
-#include "BLE_Functions.h"
 #include <TFT_eSPI.h>
 #include "gui_state.h"
 #include "gui_colors.h"
@@ -16,6 +15,9 @@
 
 // Get reference to TFT instance (initialized in bode_plot.cpp or gui_screens.cpp)
 extern TFT_eSPI tft;
+
+// Forward declarations of external functions (to avoid header conflicts)
+extern bool isBLEConnected();
 
 /*=========================SCREEN RENDERING FUNCTIONS=========================*/
 
