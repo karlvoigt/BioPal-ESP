@@ -301,7 +301,7 @@ int numCalibrationFreqs = 0;
 CalibrationCoefficients calibrationCoefficients[2][8];
 
 // Current calibration mode (default to lookup table)
-CalibrationMode calibrationMode = CALIBRATION_MODE_LOOKUP;
+CalibrationMode calibrationMode = CALIBRATION_MODE_SEPARATE_FILES;
 // CalibrationMode calibrationMode = CALIBRATION_MODE_FORMULA;
 
 /*=========================NEW CALIBRATION GLOBALS=========================*/
