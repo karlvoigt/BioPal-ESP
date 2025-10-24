@@ -158,34 +158,17 @@ bool sendCommand(uint8_t cmd_type, uint32_t data1, uint32_t data2, uint32_t data
 
 bool sendStartCommand() {
     Serial.println("Sending START command to STM32 (4 DUTs)");
-    totalExpectedDUTs = 4;
-    completedDUTCount = 0;
-
-    // Retry up to 3 times if no ACK
-    for (int attempt = 0; attempt < 3; attempt++) {
-        sendCommand(CMD_START_MEASUREMENT, 4, 0, 0);
-
-        if (waitForAck(CMD_START_MEASUREMENT, 1000)) {
-            Serial.println("START command acknowledged");
-            return true;  // Success
-        }
-
-        Serial.printf("Retry %d/3...\n", attempt + 1);
-        delay(100);  // Wait before retry
-    }
-
-    Serial.println("ERROR: START command failed after 3 attempts");
-    return false;
+    return sendStartCommand(4);
 }
 
-bool sendStartCommand(uint8_t num_duts) {
+bool sendStartCommand(uint8_t num_duts, uint8_t startIDX, uint8_t endIDX) {
     Serial.printf("Sending START command to STM32 (%d DUT%s)\n", num_duts, num_duts > 1 ? "s" : "");
     totalExpectedDUTs = num_duts;
     completedDUTCount = 0;  // Reset counter
 
     // Retry up to 3 times if no ACK
     for (int attempt = 0; attempt < 3; attempt++) {
-        sendCommand(CMD_START_MEASUREMENT, num_duts, 0, 0);
+        sendCommand(CMD_START_MEASUREMENT, num_duts, startIDX, endIDX);
 
         if (waitForAck(CMD_START_MEASUREMENT, 1000)) {
             Serial.println("START command acknowledged");

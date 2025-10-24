@@ -17,8 +17,9 @@
 #define BLE_DEVICE_NAME "BioPal-ESP32"
 
 // BLE command types
-#define BLE_CMD_START   "START"
+#define BLE_CMD_BASELINE   "BASELINE_START"
 #define BLE_CMD_STOP    "STOP"
+#define BLE_CMD_MEAS    "MEAS_START"
 
 // BLE response types
 #define BLE_RESP_STATUS     "STATUS"
@@ -53,9 +54,8 @@ void clearBLEConnectionChanged();
 // Command string will be copied to cmdBuffer (null-terminated)
 bool getBLECommand(char* cmdBuffer, size_t maxLen);
 
-// Parse START command to extract number of DUTs
-// Returns number of DUTs (1-4), or 0 if invalid
-uint8_t parseStartCommand(const char* cmd);
+// Parse START command to extract number of DUTs, start index, and stop index
+void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, uint8_t& stop_idx);
 
 /*=========================BLE DATA TRANSMISSION=========================*/
 // Send status message to WebUI

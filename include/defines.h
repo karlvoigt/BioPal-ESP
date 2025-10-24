@@ -30,8 +30,13 @@ struct ImpedancePoint {
     ImpedancePoint() : freq_hz(0), Z_magnitude(0.0), Z_phase(0.0),pga_gain(0),tia_gain(false), valid(false) {}
 };
 
+extern bool measurementInProgress;
+extern bool baselineMeasurementDone;
+extern bool finalMeasurementDone;
 // Global impedance data storage [DUT][frequency]
-extern ImpedancePoint impedanceData[MAX_DUT_COUNT][MAX_FREQUENCIES];
+extern ImpedancePoint baselineImpedanceData[MAX_DUT_COUNT][MAX_FREQUENCIES];
+extern ImpedancePoint measurementImpedanceData[MAX_DUT_COUNT][MAX_FREQUENCIES];
+
 extern int frequencyCount[MAX_DUT_COUNT];  // Number of valid frequencies per DUT
 
 #endif // DEFINES_H

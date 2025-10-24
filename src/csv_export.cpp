@@ -7,7 +7,7 @@ void printCSVToSerial() {
 
     for (uint8_t dut = 0; dut < MAX_DUT_COUNT; dut++) {
         for (int freqIdx = 0; freqIdx < frequencyCount[dut]; freqIdx++) {
-            ImpedancePoint* point = &impedanceData[dut][freqIdx];
+            ImpedancePoint* point = &baselineImpedanceData[dut][freqIdx];
 
             if (point->valid) {
                 Serial.printf("%d,%lu,%.6f,%.2f,%d,%d\n",

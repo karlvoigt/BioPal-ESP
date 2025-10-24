@@ -47,7 +47,11 @@ void processSerialCommands() {
             frequencyCount[i] = 0;
             // Optionally clear impedance data array
             for (int j = 0; j < MAX_FREQUENCIES; j++) {
-                impedanceData[i][j] = ImpedancePoint();
+                if (baselineMeasurementDone) {
+                    measurementImpedanceData[i][j] = ImpedancePoint();
+                } else {
+                    baselineImpedanceData[i][j] = ImpedancePoint();
+                }
             }
         }
         Serial.println("Buffers cleared - ready for new measurement");

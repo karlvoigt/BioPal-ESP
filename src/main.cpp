@@ -13,8 +13,15 @@
 
 /*=========================GLOBAL VARIABLES=========================*/
 // Initialize global impedance data arrays
-ImpedancePoint impedanceData[MAX_DUT_COUNT][MAX_FREQUENCIES];
+ImpedancePoint baselineImpedanceData[MAX_DUT_COUNT][MAX_FREQUENCIES];
+ImpedancePoint measurementImpedanceData[MAX_DUT_COUNT][MAX_FREQUENCIES];
 int frequencyCount[MAX_DUT_COUNT] = {0};
+bool measurementInProgress = false;
+bool baselineMeasurementDone = false;
+bool finalMeasurementDone = false;
+uint8_t startIDX = 0;
+uint8_t endIDX = 37;
+uint8_t num_duts = 1;
 
 // FreeRTOS queue for measurement data
 QueueHandle_t measurementQueue;
@@ -72,7 +79,11 @@ void taskDataProcessor(void* parameter) {
             // Store in global impedance array
             int freqIndex = frequencyCount[dutIndex];
             if (freqIndex < MAX_FREQUENCIES) {
-                impedanceData[dutIndex][freqIndex] = impedance;
+                if (baselineMeasurementDone) {
+                    measurementImpedanceData[dutIndex][freqIndex] = impedance;
+                } else {
+                    baselineImpedanceData[dutIndex][freqIndex] = impedance;
+                }
                 frequencyCount[dutIndex]++;
             } else {
                 Serial.printf("ERROR: Frequency buffer full for DUT %d\n", dutIndex + 1);
@@ -95,40 +106,76 @@ void processBLECommands() {
     String cmdStr(cmdBuffer);
 
     // Parse START command
-    if (cmdStr.startsWith("START")) {
-        uint8_t num_duts = parseStartCommand(cmdBuffer);
+    if (cmdStr.startsWith(BLE_CMD_BASELINE)) {
+        if (measurementInProgress) {
+            sendBLEError("Measurement already in progress");
+            return;
+        } else if (baselineMeasurementDone && !finalMeasurementDone) {
+            sendBLEError("Baseline measurement already done, proceed to MEAS");
+            return;
+        }
+        baselineMeasurementDone = false;
+        finalMeasurementDone = false;
+        
+        parseStartCommand(cmdBuffer, num_duts, startIDX, endIDX);
 
         if (num_duts == 0) {
             sendBLEError("Invalid DUT count (must be 1-4)");
             return;
         }
 
-        Serial.printf("[BLE] Starting measurement with %d DUT%s...\n", num_duts, num_duts > 1 ? "s" : "");
+        Serial.printf("[BLE] Starting Baseline measurement with %d DUT%s...\n", num_duts, num_duts > 1 ? "s" : "");
 
         // Clear previous measurement data
-        Serial.println("[BLE] Clearing measurement buffers...");
         for (int i = 0; i < MAX_DUT_COUNT; i++) {
             frequencyCount[i] = 0;
             for (int j = 0; j < MAX_FREQUENCIES; j++) {
-                impedanceData[i][j] = ImpedancePoint();
+                baselineImpedanceData[i][j] = ImpedancePoint();
             }
         }
         Serial.println("[BLE] Buffers cleared - ready for new measurement");
 
         // Start measurement via UART
-        if (sendStartCommand(num_duts)) {
+        if (sendStartCommand(num_duts, startIDX, endIDX)) {
             // Send status update
             sendBLEStatus("Measuring");
+            measurementInProgress = true;
         } else {
             sendBLEError("Failed to start measurement");
         }
 
     }
+    else if (cmdStr.equals(BLE_CMD_MEAS)) {
+        if (measurementInProgress) {
+            sendBLEError("Measurement already in progress");
+            return;
+        } else if (!baselineMeasurementDone) {
+            sendBLEError("Baseline measurement needs to be done first");
+            return;
+        }
+
+        for (int i = 0; i < MAX_DUT_COUNT; i++) {
+            frequencyCount[i] = 0;
+            for (int j = 0; j < MAX_FREQUENCIES; j++) {
+                measurementImpedanceData[i][j] = ImpedancePoint();
+            }
+        }
+        finalMeasurementDone = false;
+        // Start measurement via UART
+        if (sendStartCommand(num_duts, startIDX, endIDX)) {
+            // Send status update
+            sendBLEStatus("Measuring");
+            measurementInProgress = true;
+        } else {
+            sendBLEError("Failed to start measurement");
+        }
+    }
     // Parse STOP command
-    else if (cmdStr.equals("STOP")) {
+    else if (cmdStr.equals(BLE_CMD_STOP)) {
         Serial.println("[BLE] Stopping measurement...");
         sendStopCommand();
         sendBLEStatus("Stopped");
+        measurementInProgress = false;
     }
     else {
         Serial.printf("[BLE] ERROR: Unknown command '%s'\n", cmdBuffer);
@@ -186,6 +233,14 @@ void taskGUI(void* parameter) {
             // Check if all measurements are complete
             if (xSemaphoreTake(measurementCompleteSem, 0) == pdTRUE) {
                 allMeasurementsComplete = true;
+                measurementInProgress = false;
+                if (!baselineMeasurementDone) {
+                    baselineMeasurementDone = true;
+                    Serial.println("Baseline measurement completed");
+                } else {
+                    finalMeasurementDone = true;
+                    Serial.println("Final measurement completed");
+                }
             }
         }
 
@@ -195,8 +250,13 @@ void taskGUI(void* parameter) {
             printCSVToSerial();
 
             // Send completion notification via BLE
-            sendBLEComplete();
-            sendBLEStatus("Complete");
+            if (!finalMeasurementDone) {
+                Serial.println("Baseline measurement complete");
+                sendBLEStatus("Baseline Complete");
+            } else {
+                sendBLEStatus("Measurement Complete");
+                Serial.println("Final measurement complete");
+            }
 
             allMeasurementsComplete = false;  // Reset flag
         }

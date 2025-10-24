@@ -134,7 +134,7 @@ void drawBodePlot(uint8_t dutIndex) {
     float phase_min = 1e9, phase_max = -1e9;
 
     for (int i = 0; i < numPoints; i++) {
-        ImpedancePoint* point = &impedanceData[dutIndex][i];
+        ImpedancePoint* point = &baselineImpedanceData[dutIndex][i];
         if (!point->valid) continue;
 
         if (point->freq_hz > 0) {
@@ -262,7 +262,7 @@ void drawBodePlot(uint8_t dutIndex) {
     // Plot magnitude data (solid line)
     int16_t prevX_mag = -1, prevY_mag = -1;
     for (int i = 0; i < numPoints; i++) {
-        ImpedancePoint* point = &impedanceData[dutIndex][i];
+        ImpedancePoint* point = &baselineImpedanceData[dutIndex][i];
         if (!point->valid || point->freq_hz <= 0 || point->Z_magnitude <= 0) continue;
 
         int16_t x = freqToX(point->freq_hz, freq_min, freq_max);
@@ -279,7 +279,7 @@ void drawBodePlot(uint8_t dutIndex) {
     // Plot phase data (dashed line)
     int16_t prevX_phase = -1, prevY_phase = -1;
     for (int i = 0; i < numPoints; i++) {
-        ImpedancePoint* point = &impedanceData[dutIndex][i];
+        ImpedancePoint* point = &baselineImpedanceData[dutIndex][i];
         if (!point->valid || point->freq_hz <= 0) continue;
 
         int16_t x = freqToX(point->freq_hz, freq_min, freq_max);

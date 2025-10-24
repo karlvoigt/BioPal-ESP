@@ -81,7 +81,7 @@ void processBufferedBytes();
 bool sendStartCommand();
 
 // Send start measurement command with specific number of DUTs (1-4)
-bool sendStartCommand(uint8_t num_duts);
+bool sendStartCommand(uint8_t num_duts, uint8_t startIDX = 0, uint8_t endIDX = 37);
 
 // Send stop measurement command to STM32
 bool sendStopCommand();

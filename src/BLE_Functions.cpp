@@ -163,32 +163,54 @@ bool getBLECommand(char* cmdBuffer, size_t maxLen) {
     return true;
 }
 
-uint8_t parseStartCommand(const char* cmd) {
-    // Expected format: "START:n" where n is 1-4
+void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, uint8_t& stop_idx) {
+    // Expect format:
+    // 1) With commas: "START:n,SS,EE"  (SS and EE are exactly 2 chars, may have leading zeros)
+    // 2) Without commas: "START:nSSEE" (n = 1 char, SS = 2 chars, EE = 2 chars)
     String cmdStr(cmd);
 
-    if (!cmdStr.startsWith(BLE_CMD_START)) {
+    // defaults
+    num_duts = 4;
+    start_idx = 0;
+    stop_idx = 0;
+
+    if (!cmdStr.startsWith(BLE_CMD_BASELINE)) {
         Serial.println("[BLE] ERROR: Not a START command");
-        return 0;
+        num_duts = 0;
+        return;
     }
 
     int colonIndex = cmdStr.indexOf(':');
     if (colonIndex < 0) {
-        Serial.println("[BLE] WARNING: START command without DUT count, using default 4");
-        return 4;  // Default to 4 DUTs
+        Serial.println("[BLE] WARNING: START command without parameters, using defaults (4,0,0)");
+        return;
     }
 
-    String numStr = cmdStr.substring(colonIndex + 1);
-    numStr.trim();
-    int num_duts = numStr.toInt();
-
-    if (num_duts < 1 || num_duts > 4) {
-        Serial.printf("[BLE] ERROR: Invalid DUT count %d (must be 1-4)\n", num_duts);
-        return 0;
+    String params = cmdStr.substring(colonIndex + 1);
+    params.trim();
+    params.replace(",", "");
+    if (params.length() != 5) {
+        Serial.println("[BLE] WARNING: START command has empty parameters, using defaults (4,0,0)");
+        return;
     }
 
-    Serial.printf("[BLE] Parsed START command: %d DUT%s\n", num_duts, num_duts > 1 ? "s" : "");
-    return (uint8_t)num_duts;
+    int n = params.charAt(0) - '0';
+    if (n < 1 || n > 4) {
+        Serial.printf("[BLE] ERROR: Invalid DUT count %d (must be 1-4)\n", n);
+        num_duts = 0;
+        return;
+    }
+    num_duts = (uint8_t)n;
+
+    String sStart = params.substring(1, 3);
+    start_idx = (uint8_t)sStart.toInt();
+    
+    
+    String sStop = params.substring(3, 5);
+    stop_idx = (uint8_t)sStop.toInt();
+
+    Serial.printf("[BLE] Parsed START command: %d DUT%s, start=%u, stop=%u\n",
+                  num_duts, num_duts > 1 ? "s" : "", start_idx, stop_idx);
 }
 
 /*=========================DATA TRANSMISSION=========================*/
@@ -289,12 +311,25 @@ bool sendBLEImpedanceData(uint8_t dutIndex) {
 
     // Fill arrays with impedance data
     for (int i = 0; i < frequencyCount[dutIndex]; i++) {
-        ImpedancePoint& point = impedanceData[dutIndex][i];
+        if (baselineMeasurementDone && !finalMeasurementDone) {
+            ImpedancePoint& point = baselineImpedanceData[dutIndex][i];
 
-        if (point.valid) {
-            freqArray.add(point.freq_hz);
-            magArray.add(serialized(String(point.Z_magnitude, 3)));  // 3 decimal places (reduced for smaller JSON)
-            phaseArray.add(serialized(String(point.Z_phase, 2)));     // 2 decimal places
+            if (point.valid) {
+                freqArray.add(point.freq_hz);
+                magArray.add(serialized(String(point.Z_magnitude, 3)));  // 3 decimal places (reduced for smaller JSON)
+                phaseArray.add(serialized(String(point.Z_phase, 2)));     // 2 decimal places
+            }
+        } else if (finalMeasurementDone) {
+            ImpedancePoint& point = measurementImpedanceData[dutIndex][i];
+
+            if (point.valid) {
+                freqArray.add(point.freq_hz);
+                magArray.add(serialized(String(point.Z_magnitude, 3)));  // 3 decimal places (reduced for smaller JSON)
+                phaseArray.add(serialized(String(point.Z_phase, 2)));     // 2 decimal places
+            }
+        }else {
+            Serial.println("[BLE] ERROR: Measurement state invalid");
+            return false;
         }
     }
 
