@@ -951,6 +951,9 @@ bool calibrateWithSeparateFiles(ImpedancePoint& point) {
     // Phase: phase = uncalibrated_phase - v_phase + tia_phase + pga_phase
     point.Z_phase = point.Z_phase - vCal->phase_offset + tiaCal->phase_offset + pgaCal->phase_offset;
 
+    // Wrap phase to [-180, 180]
+    while(point.Z_phase > 180.0f) point.Z_phase -= 360.0f;
+    while(point.Z_phase < -180.0f) point.Z_phase += 360.0f;
     Serial.printf("Separate file cal: Freq=%lu, TIA=%d, PGA=%d\n",
                   point.freq_hz, point.tia_gain, point.pga_gain);
     Serial.printf("  V: gain=%.3f, phase=%.3f\n", vCal->gain, vCal->phase_offset);
