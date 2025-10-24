@@ -311,7 +311,7 @@ bool sendBLEImpedanceData(uint8_t dutIndex) {
 
     // Fill arrays with impedance data
     for (int i = 0; i < frequencyCount[dutIndex]; i++) {
-        if (baselineMeasurementDone && !finalMeasurementDone) {
+        if (!baselineMeasurementDone) {
             ImpedancePoint& point = baselineImpedanceData[dutIndex][i];
 
             if (point.valid) {
@@ -319,7 +319,7 @@ bool sendBLEImpedanceData(uint8_t dutIndex) {
                 magArray.add(serialized(String(point.Z_magnitude, 3)));  // 3 decimal places (reduced for smaller JSON)
                 phaseArray.add(serialized(String(point.Z_phase, 2)));     // 2 decimal places
             }
-        } else if (finalMeasurementDone) {
+        } else {
             ImpedancePoint& point = measurementImpedanceData[dutIndex][i];
 
             if (point.valid) {
@@ -327,9 +327,6 @@ bool sendBLEImpedanceData(uint8_t dutIndex) {
                 magArray.add(serialized(String(point.Z_magnitude, 3)));  // 3 decimal places (reduced for smaller JSON)
                 phaseArray.add(serialized(String(point.Z_phase, 2)));     // 2 decimal places
             }
-        }else {
-            Serial.println("[BLE] ERROR: Measurement state invalid");
-            return false;
         }
     }
 
