@@ -304,6 +304,20 @@ CalibrationCoefficients calibrationCoefficients[2][8];
 CalibrationMode calibrationMode = CALIBRATION_MODE_LOOKUP;
 // CalibrationMode calibrationMode = CALIBRATION_MODE_FORMULA;
 
+/*=========================NEW CALIBRATION GLOBALS=========================*/
+// Separate calibration data arrays
+FreqCalPoint voltageCalData[MAX_CAL_FREQUENCIES];
+int numVoltageFreqs = 0;
+
+FreqCalPoint tiaHighCalData[MAX_CAL_FREQUENCIES];
+int numTIAHighFreqs = 0;
+
+FreqCalPoint tiaLowCalData[MAX_CAL_FREQUENCIES];
+int numTIALowFreqs = 0;
+
+FreqCalPoint pgaCalData[8][MAX_CAL_FREQUENCIES];
+int numPGAFreqs[8] = {0};
+
 /*=========================HELPER FUNCTIONS=========================*/
 
 // Find the index of a frequency in the calibration data
@@ -553,6 +567,9 @@ bool calibrate(ImpedancePoint& point) {
     if(calibrationMode == CALIBRATION_MODE_FORMULA) {
         // Use formula-based calibration
         return calibrateWithFormula(point);
+    } else if(calibrationMode == CALIBRATION_MODE_SEPARATE_FILES) {
+        // Use separate files calibration
+        return calibrateWithSeparateFiles(point);
     } else {
         // Use lookup table calibration
         CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
@@ -576,11 +593,365 @@ bool calibrate(ImpedancePoint& point) {
 // Set calibration mode
 void setCalibrationMode(CalibrationMode mode) {
     calibrationMode = mode;
-    Serial.printf("Calibration mode set to: %s\n",
-                  mode == CALIBRATION_MODE_FORMULA ? "FORMULA" : "LOOKUP_TABLE");
+    const char* modeName;
+    switch(mode) {
+        case CALIBRATION_MODE_FORMULA:
+            modeName = "FORMULA";
+            break;
+        case CALIBRATION_MODE_SEPARATE_FILES:
+            modeName = "SEPARATE_FILES";
+            break;
+        default:
+            modeName = "LOOKUP_TABLE";
+            break;
+    }
+    Serial.printf("Calibration mode set to: %s\n", modeName);
 }
 
 // Get current calibration mode
 CalibrationMode getCalibrationMode() {
     return calibrationMode;
+}
+
+/*=========================NEW CALIBRATION FUNCTIONS=========================*/
+
+// Helper function to find frequency index in voltage calibration data
+int findVoltageFreqIndex(uint32_t freq) {
+    for(int i = 0; i < numVoltageFreqs; i++) {
+        if(voltageCalData[i].frequency_hz == freq) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Helper function to find frequency index in TIA calibration data
+int findTIAFreqIndex(uint32_t freq, bool lowTIA) {
+    if(lowTIA) {
+        for(int i = 0; i < numTIALowFreqs; i++) {
+            if(tiaLowCalData[i].frequency_hz == freq) {
+                return i;
+            }
+        }
+    } else {
+        for(int i = 0; i < numTIAHighFreqs; i++) {
+            if(tiaHighCalData[i].frequency_hz == freq) {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+// Helper function to find frequency index in PGA calibration data
+int findPGAFreqIndex(uint32_t freq, uint8_t pgaGain) {
+    if(pgaGain > 7) return -1;
+
+    for(int i = 0; i < numPGAFreqs[pgaGain]; i++) {
+        if(pgaCalData[pgaGain][i].frequency_hz == freq) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Load voltage calibration from /voltage.csv
+// CSV Format: freq,gain,phase_offset
+bool loadVoltageCalibration() {
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS for voltage calibration");
+        return false;
+    }
+
+    // Open voltage calibration file
+    File file = LittleFS.open("/voltage.csv", "r");
+    if(!file) {
+        Serial.println("Failed to open voltage.csv");
+        LittleFS.end();
+        return false;
+    }
+
+    numVoltageFreqs = 0;
+
+    // Read file line by line
+    while(file.available() && numVoltageFreqs < MAX_CAL_FREQUENCIES) {
+        String line = file.readStringUntil('\n');
+        line.trim();
+
+        // Skip empty lines, comments, and header
+        if(line.length() == 0 || line.startsWith("#") || line.startsWith("freq")) {
+            continue;
+        }
+
+        // Parse CSV line: freq,gain,phase_offset
+        uint32_t freq = 0;
+        float gain = 1.0;
+        float phase = 0.0;
+
+        int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+
+        if(fieldCount != 3) {
+            Serial.printf("Invalid voltage cal line: %s\n", line.c_str());
+            continue;
+        }
+
+        // Store calibration point
+        voltageCalData[numVoltageFreqs] = FreqCalPoint(round(freq*1000), gain, phase);
+        numVoltageFreqs++;
+    }
+
+    file.close();
+    LittleFS.end();
+
+    Serial.printf("Loaded voltage calibration for %d frequencies\n", numVoltageFreqs);
+    return numVoltageFreqs > 0;
+}
+
+// Load TIA calibration from /tia_high.csv and /tia_low.csv
+// CSV Format: freq,gain,phase_offset
+bool loadTIACalibration() {
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS for TIA calibration");
+        return false;
+    }
+
+    bool success = true;
+
+    // Load TIA High calibration
+    File fileHigh = LittleFS.open("/tia_high.csv", "r");
+    if(!fileHigh) {
+        Serial.println("Failed to open tia_high.csv");
+        success = false;
+    } else {
+        numTIAHighFreqs = 0;
+
+        while(fileHigh.available() && numTIAHighFreqs < MAX_CAL_FREQUENCIES) {
+            String line = fileHigh.readStringUntil('\n');
+            line.trim();
+
+            // Skip empty lines, comments, and header
+            if(line.length() == 0 || line.startsWith("#") || line.startsWith("freq")) {
+                continue;
+            }
+
+            // Parse CSV line: freq,gain,phase_offset
+            uint32_t freq = 0;
+            float gain = 1.0;
+            float phase = 0.0;
+
+            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+
+            if(fieldCount != 3) {
+                Serial.printf("Invalid TIA high cal line: %s\n", line.c_str());
+                continue;
+            }
+
+            // Store calibration point
+            tiaHighCalData[numTIAHighFreqs] = FreqCalPoint(round(freq*1000), gain, phase);
+            numTIAHighFreqs++;
+        }
+
+        fileHigh.close();
+        Serial.printf("Loaded TIA high calibration for %d frequencies\n", numTIAHighFreqs);
+    }
+
+    // Load TIA Low calibration
+    File fileLow = LittleFS.open("/tia_low.csv", "r");
+    if(!fileLow) {
+        Serial.println("Failed to open tia_low.csv");
+        success = false;
+    } else {
+        numTIALowFreqs = 0;
+
+        while(fileLow.available() && numTIALowFreqs < MAX_CAL_FREQUENCIES) {
+            String line = fileLow.readStringUntil('\n');
+            line.trim();
+
+            // Skip empty lines, comments, and header
+            if(line.length() == 0 || line.startsWith("#") || line.startsWith("freq")) {
+                continue;
+            }
+
+            // Parse CSV line: freq,gain,phase_offset
+            uint32_t freq = 0;
+            float gain = 1.0;
+            float phase = 0.0;
+
+            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+
+            if(fieldCount != 3) {
+                Serial.printf("Invalid TIA low cal line: %s\n", line.c_str());
+                continue;
+            }
+
+            // Store calibration point
+            tiaLowCalData[numTIALowFreqs] = FreqCalPoint(round(freq*1000), gain, phase);
+            numTIALowFreqs++;
+        }
+
+        fileLow.close();
+        Serial.printf("Loaded TIA low calibration for %d frequencies\n", numTIALowFreqs);
+    }
+
+    LittleFS.end();
+
+    return success && (numTIAHighFreqs > 0 || numTIALowFreqs > 0);
+}
+
+// Load PGA calibration from /pga_*.csv files
+// CSV Format: freq,gain,phase_offset
+bool loadPGACalibration() {
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS for PGA calibration");
+        return false;
+    }
+
+    // PGA gain values: 1, 2, 5, 10, 20, 50, 100, 200
+    const char* pgaFiles[8] = {
+        "/pga_1.csv",
+        "/pga_2.csv",
+        "/pga_5.csv",
+        "/pga_10.csv",
+        "/pga_20.csv",
+        "/pga_50.csv",
+        "/pga_100.csv",
+        "/pga_200.csv"
+    };
+
+    bool anyLoaded = false;
+
+    // Load each PGA calibration file
+    for(int pgaIdx = 0; pgaIdx < 8; pgaIdx++) {
+        File file = LittleFS.open(pgaFiles[pgaIdx], "r");
+        if(!file) {
+            Serial.printf("Warning: Failed to open %s\n", pgaFiles[pgaIdx]);
+            numPGAFreqs[pgaIdx] = 0;
+            continue;
+        }
+
+        numPGAFreqs[pgaIdx] = 0;
+
+        while(file.available() && numPGAFreqs[pgaIdx] < MAX_CAL_FREQUENCIES) {
+            String line = file.readStringUntil('\n');
+            line.trim();
+
+            // Skip empty lines, comments, and header
+            if(line.length() == 0 || line.startsWith("#") || line.startsWith("freq")) {
+                continue;
+            }
+
+            // Parse CSV line: freq,gain,phase_offset
+            uint32_t freq = 0;
+            float gain = 1.0;
+            float phase = 0.0;
+
+            int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq, &gain, &phase);
+
+            if(fieldCount != 3) {
+                Serial.printf("Invalid PGA cal line in %s: %s\n", pgaFiles[pgaIdx], line.c_str());
+                continue;
+            }
+
+            // Store calibration point
+            pgaCalData[pgaIdx][numPGAFreqs[pgaIdx]] = FreqCalPoint(round(freq*1000), gain, phase);
+            numPGAFreqs[pgaIdx]++;
+        }
+
+        file.close();
+        Serial.printf("Loaded PGA %d calibration for %d frequencies\n", pgaIdx, numPGAFreqs[pgaIdx]);
+
+        if(numPGAFreqs[pgaIdx] > 0) {
+            anyLoaded = true;
+        }
+    }
+
+    LittleFS.end();
+
+    return anyLoaded;
+}
+
+// Load all separate calibration files
+bool loadSeparateCalibrationFiles() {
+    Serial.println("\n=== Loading Separate Calibration Files ===");
+
+    bool voltageOK = loadVoltageCalibration();
+    bool tiaOK = loadTIACalibration();
+    bool pgaOK = loadPGACalibration();
+
+    bool success = voltageOK && tiaOK && pgaOK;
+
+    if(success) {
+        Serial.println("✓ All calibration files loaded successfully");
+    } else {
+        Serial.println("✗ Some calibration files failed to load");
+    }
+
+    return success;
+}
+
+// Get voltage calibration point for specific frequency
+SimpleCalPoint* getVoltageCalPoint(uint32_t freq) {
+    int idx = findVoltageFreqIndex(freq);
+    if(idx < 0) return nullptr;
+    return &voltageCalData[idx].calPoint;
+}
+
+// Get TIA calibration point for specific frequency and TIA mode
+SimpleCalPoint* getTIACalPoint(uint32_t freq, bool lowTIA) {
+    int idx = findTIAFreqIndex(freq, lowTIA);
+    if(idx < 0) return nullptr;
+
+    if(lowTIA) {
+        return &tiaLowCalData[idx].calPoint;
+    } else {
+        return &tiaHighCalData[idx].calPoint;
+    }
+}
+
+// Get PGA calibration point for specific frequency and PGA gain
+SimpleCalPoint* getPGACalPoint(uint32_t freq, uint8_t pgaGain) {
+    if(pgaGain > 7) return nullptr;
+
+    int idx = findPGAFreqIndex(freq, pgaGain);
+    if(idx < 0) return nullptr;
+
+    return &pgaCalData[pgaGain][idx].calPoint;
+}
+
+// Apply calibration using separate files
+// Formula: mag = (uncalibrated / v_gain) * tia_gain * pga_gain
+//          phase = uncalibrated_phase - v_phase + tia_phase + pga_phase
+bool calibrateWithSeparateFiles(ImpedancePoint& point) {
+    // Get calibration points
+    SimpleCalPoint* vCal = getVoltageCalPoint(point.freq_hz);
+    SimpleCalPoint* tiaCal = getTIACalPoint(point.freq_hz, point.tia_gain);
+    SimpleCalPoint* pgaCal = getPGACalPoint(point.freq_hz, point.pga_gain);
+
+    // Check if all calibration points are available
+    if(!vCal || !tiaCal || !pgaCal) {
+        Serial.printf("Missing calibration data for freq=%lu, TIA=%d, PGA=%d\n",
+                      point.freq_hz, point.tia_gain, point.pga_gain);
+        if(!vCal) Serial.println("  - Missing voltage calibration");
+        if(!tiaCal) Serial.println("  - Missing TIA calibration");
+        if(!pgaCal) Serial.println("  - Missing PGA calibration");
+        return false;
+    }
+
+    // Apply calibration formulas
+    // Magnitude: mag = (uncalibrated / v_gain) * tia_gain * pga_gain
+    point.Z_magnitude = (point.Z_magnitude / vCal->gain) * tiaCal->gain * pgaCal->gain;
+
+    // Phase: phase = uncalibrated_phase - v_phase + tia_phase + pga_phase
+    point.Z_phase = point.Z_phase - vCal->phase_offset + tiaCal->phase_offset + pgaCal->phase_offset;
+
+    Serial.printf("Separate file cal: Freq=%lu, TIA=%d, PGA=%d\n",
+                  point.freq_hz, point.tia_gain, point.pga_gain);
+    Serial.printf("  V: gain=%.3f, phase=%.3f\n", vCal->gain, vCal->phase_offset);
+    Serial.printf("  TIA: gain=%.3f, phase=%.3f\n", tiaCal->gain, tiaCal->phase_offset);
+    Serial.printf("  PGA: gain=%.3f, phase=%.3f\n", pgaCal->gain, pgaCal->phase_offset);
+
+    return true;
 }

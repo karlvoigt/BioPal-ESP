@@ -6,8 +6,9 @@
 
 /*=========================CALIBRATION MODE ENUM=========================*/
 enum CalibrationMode {
-    CALIBRATION_MODE_LOOKUP,    // Use lookup table from calibration.csv
-    CALIBRATION_MODE_FORMULA    // Use quadratic formula with coefficients
+    CALIBRATION_MODE_LOOKUP,        // Use lookup table from calibration.csv
+    CALIBRATION_MODE_FORMULA,       // Use quadratic formula with coefficients
+    CALIBRATION_MODE_SEPARATE_FILES // Use separate CSV files for voltage, TIA, and PGA
 };
 
 /*=========================CALIBRATION COEFFICIENTS STRUCT=========================*/
@@ -46,6 +47,26 @@ class CalibrationPoint
             impedance_gain = Z_gain;
             phase_offset = phase;
         }
+};
+
+/*=========================NEW CALIBRATION STRUCTURES=========================*/
+// Simple calibration point - just gain and phase offset
+struct SimpleCalPoint {
+    float gain;
+    float phase_offset;
+
+    SimpleCalPoint() : gain(1.0), phase_offset(0.0) {}
+    SimpleCalPoint(float g, float p) : gain(g), phase_offset(p) {}
+};
+
+// Frequency-indexed calibration data
+struct FreqCalPoint {
+    uint32_t frequency_hz;
+    SimpleCalPoint calPoint;
+
+    FreqCalPoint() : frequency_hz(0) {}
+    FreqCalPoint(uint32_t freq, float gain, float phase)
+        : frequency_hz(freq), calPoint(gain, phase) {}
 };
 
 /*=========================FREQ CALIBRATION DATA CLASS=========================*/
@@ -95,6 +116,22 @@ extern CalibrationCoefficients calibrationCoefficients[2][8];
 // Current calibration mode
 extern CalibrationMode calibrationMode;
 
+/*=========================NEW CALIBRATION DATA ARRAYS=========================*/
+// Separate calibration data for voltage, TIA, and PGA
+extern FreqCalPoint voltageCalData[MAX_CAL_FREQUENCIES];
+extern int numVoltageFreqs;
+
+extern FreqCalPoint tiaHighCalData[MAX_CAL_FREQUENCIES];
+extern int numTIAHighFreqs;
+
+extern FreqCalPoint tiaLowCalData[MAX_CAL_FREQUENCIES];
+extern int numTIALowFreqs;
+
+// PGA calibration: [PGA_gain_index][frequency]
+// PGA_gain_index: 0-7 (1, 2, 5, 10, 20, 50, 100, 200)
+extern FreqCalPoint pgaCalData[8][MAX_CAL_FREQUENCIES];
+extern int numPGAFreqs[8];
+
 // Calibration arrays
 // extern float v_phase_shifts[MAX_CAL_FREQUENCIES];
 // extern float v_gain[MAX_CAL_FREQUENCIES];
@@ -135,5 +172,27 @@ void setCalibrationMode(CalibrationMode mode);
 
 // Get current calibration mode
 CalibrationMode getCalibrationMode();
+
+/*=========================NEW CALIBRATION FUNCTIONS=========================*/
+
+// Load new separate calibration files
+// Returns true on success, false on failure
+bool loadVoltageCalibration();  // Loads /voltage.csv
+bool loadTIACalibration();      // Loads /tia_high.csv and /tia_low.csv
+bool loadPGACalibration();      // Loads /pga_1.csv through /pga_200.csv
+
+// Load all new calibration files
+bool loadSeparateCalibrationFiles();
+
+// Get individual calibration values for a specific frequency and settings
+// Returns pointers to SimpleCalPoint or nullptr if not found
+SimpleCalPoint* getVoltageCalPoint(uint32_t freq);
+SimpleCalPoint* getTIACalPoint(uint32_t freq, bool lowTIA);
+SimpleCalPoint* getPGACalPoint(uint32_t freq, uint8_t pgaGain);
+
+// Apply new calibration formula
+// Formula: mag = (uncalibrated / v_gain) * tia_gain * pga_gain
+//          phase = uncalibrated_phase - v_phase + tia_phase + pga_phase
+bool calibrateWithSeparateFiles(ImpedancePoint& point);
 
 #endif // CALIBRATION_H
