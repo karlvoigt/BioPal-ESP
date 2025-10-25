@@ -123,11 +123,11 @@ void processBLECommands() {
         parseStartCommand(cmdBuffer, num_duts, startIDX, endIDX);
 
         if (num_duts == 0) {
-            sendBLEError("Invalid DUT count (must be 1-4)");
+            sendBLEError("Invalid Sensor count (must be 1-4)");
             return;
         }
 
-        Serial.printf("[BLE] Starting Baseline measurement with %d DUT%s...\n", num_duts, num_duts > 1 ? "s" : "");
+        Serial.printf("[BLE] Starting Baseline measurement with %d Sensor%s...\n", num_duts, num_duts > 1 ? "s" : "");
 
         // Clear previous measurement data
         for (int i = 0; i < MAX_DUT_COUNT; i++) {
@@ -194,6 +194,11 @@ void taskGUI(void* parameter) {
     // Initialize TFT display
     initBodePlot();
     Serial.println("TFT display initialized");
+
+    // Initialize sprite buffer for flicker-free rendering
+    if (!initSpriteBuffer()) {
+        Serial.println("WARNING: Sprite buffer failed to initialize - rendering will have flicker");
+    }
 
     // Initialize GUI state machine
     initGUIState();

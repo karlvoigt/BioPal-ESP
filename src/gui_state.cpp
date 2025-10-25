@@ -191,7 +191,7 @@ void updateProgressScreen(uint8_t dutIndex) {
         }
         progressPercent = ((float)completedDUTs / (float)totalDUTs) * 100.0f;
 
-        Serial.printf("[GUI] Progress: DUT %d complete, %.0f%% done\n", dutIndex + 1, progressPercent);
+        Serial.printf("[GUI] Progress: Sensor %d complete, %.0f%% done\n", dutIndex + 1, progressPercent);
 
         // Redraw progress screen
         if (currentGUIState == GUI_BASELINE_PROGRESS || currentGUIState == GUI_FINAL_PROGRESS) {

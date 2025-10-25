@@ -15,6 +15,9 @@ static bool connectionChanged = false;
 static String receivedCommand = "";
 static bool commandReady = false;
 
+extern void drawConnectionIndicatorDefault(bool connected);
+
+
 /*=========================BLE SERVER CALLBACKS=========================*/
 class BioPalServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -22,6 +25,7 @@ class BioPalServerCallbacks: public BLEServerCallbacks {
         connectionChanged = true;
         Serial.println("[BLE] Client connected");
         Serial.printf("[BLE] Connection count: %d\n", pServer->getConnectedCount());
+        drawConnectionIndicatorDefault(true);
     }
 
     void onDisconnect(BLEServer* pServer) {
@@ -29,8 +33,7 @@ class BioPalServerCallbacks: public BLEServerCallbacks {
         connectionChanged = true;
         Serial.println("[BLE] Client disconnected");
         Serial.println("[BLE] Restarting advertising...");
-
-        // Simple: just restart advertising (don't deinit - it breaks callback)
+        drawConnectionIndicatorDefault(false);
         delay(500);
         pServer->startAdvertising();
         Serial.println("[BLE] Advertising restarted");

@@ -16,10 +16,19 @@
 // Get reference to TFT instance (initialized in bode_plot.cpp or gui_screens.cpp)
 extern TFT_eSPI tft;
 
+// Sprite for double buffering (eliminates flicker)
+extern TFT_eSprite sprite;
+
 // Forward declarations of external functions (to avoid header conflicts)
 extern bool isBLEConnected();
 
 /*=========================SCREEN RENDERING FUNCTIONS=========================*/
+
+// Initialize the sprite buffer (call once in setup)
+bool initSpriteBuffer();
+
+// Print memory usage statistics (for debugging)
+void printHeapStats();
 
 // Render the current screen based on GUI state
 // Should be called whenever screen needs updating
@@ -53,6 +62,7 @@ void drawProgressBar(int16_t x, int16_t y, int16_t w, int16_t h, float percent);
 
 // Draw BLE connection indicator (small dot)
 void drawConnectionIndicator(int16_t x, int16_t y, bool connected);
+void drawConnectionIndicatorDefault(bool connected);
 
 // Draw DUT status grid (for progress screen)
 void drawDUTStatusGrid(int16_t x, int16_t y);
