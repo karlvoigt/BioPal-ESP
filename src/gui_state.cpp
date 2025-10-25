@@ -235,7 +235,7 @@ void handleGUIInput(ButtonEvent event) {
                     selectedDUTCount--;
                     renderCurrentScreen();
                 }
-            } else if (event == BTN_EVENT_UP || event == BTN_EVENT_DOWN) {
+            } else if (event == BTN_EVENT_LEFT || event == BTN_EVENT_RIGHT) {
                 // Toggle between START and SETTINGS buttons
                 menuSelection = (menuSelection == 0) ? 1 : 0;
                 renderCurrentScreen();
