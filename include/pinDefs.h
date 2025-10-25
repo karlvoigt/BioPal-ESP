@@ -15,7 +15,7 @@
 #define BTN_UP    16
 #define BTN_DOWN  8
 #define BTN_SELECT 9
-#define ENCODER_A  19
-#define ENCODER_B  20
+#define ENCODER_A  6
+#define ENCODER_B  7
 
 #endif // PIN_DEFS_H

@@ -218,7 +218,7 @@ void drawHomeScreen() {
     int16_t selectY = 70;
     tft.setTextColor(COLOR_TEXT_DARK);
     tft.setTextDatum(TC_DATUM);
-    tft.drawString("Number of DUTs", SCREEN_WIDTH/2, selectY, 2);
+    tft.drawString("Number of Sensors", SCREEN_WIDTH/2, selectY, 2);
 
     // Large DUT count display
     char dutText[16];

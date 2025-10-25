@@ -137,14 +137,6 @@ bool isBLEConnected() {
     return deviceConnected;
 }
 
-bool getBLEConnectionChanged() {
-    return connectionChanged;
-}
-
-void clearBLEConnectionChanged() {
-    connectionChanged = false;
-    oldDeviceConnected = deviceConnected;
-}
 
 /*=========================COMMAND PROCESSING=========================*/
 bool getBLECommand(char* cmdBuffer, size_t maxLen) {
