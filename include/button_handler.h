@@ -8,7 +8,7 @@
 /*=========================BUTTON HANDLER CONFIGURATION=========================*/
 
 // Debounce time in milliseconds
-#define BUTTON_DEBOUNCE_MS 50
+#define BUTTON_DEBOUNCE_MS 250
 
 // Encoder configuration
 #define ENCODER_PULSES_PER_DETENT 2  // Adjust based on encoder type
