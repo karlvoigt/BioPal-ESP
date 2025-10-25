@@ -417,7 +417,7 @@ void drawBaselineCompleteScreen() {
     // Success message
     sprite.setTextColor(COLOR_SUCCESS);
     sprite.setTextDatum(TC_DATUM);
-    sprite.drawString("Baseline Done!", SCREEN_WIDTH/2, 150, 4);
+    // sprite.drawString("Baseline Done!", SCREEN_WIDTH/2, 150, 4);
 
     // Button
     drawButton(60, 185, SCREEN_WIDTH - 120, 45, "START FINAL", true, true);

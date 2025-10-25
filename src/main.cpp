@@ -140,9 +140,14 @@ void processBLECommands() {
 
         // Start measurement via UART
         if (sendStartCommand(num_duts, startIDX, endIDX)) {
-            // Send status update
-            sendBLEStatus("Measuring");
+            // Send status update with DUT count
+            char statusMsg[32];
+            snprintf(statusMsg, sizeof(statusMsg), "Measuring:%d", num_duts);
+            sendBLEStatus(statusMsg);
             measurementInProgress = true;
+
+            // Update display GUI to show progress screen
+            setGUIState(GUI_BASELINE_PROGRESS);
         } else {
             sendBLEError("Failed to start measurement");
         }
@@ -166,9 +171,14 @@ void processBLECommands() {
         finalMeasurementDone = false;
         // Start measurement via UART
         if (sendStartCommand(num_duts, startIDX, endIDX)) {
-            // Send status update
-            sendBLEStatus("Measuring");
+            // Send status update with DUT count
+            char statusMsg[32];
+            snprintf(statusMsg, sizeof(statusMsg), "Measuring:%d", num_duts);
+            sendBLEStatus(statusMsg);
             measurementInProgress = true;
+
+            // Update display GUI to show progress screen
+            setGUIState(GUI_FINAL_PROGRESS);
         } else {
             sendBLEError("Failed to start measurement");
         }
@@ -179,6 +189,9 @@ void processBLECommands() {
         sendStopCommand();
         sendBLEStatus("Stopped");
         measurementInProgress = false;
+
+        // Return display GUI to home screen
+        setGUIState(GUI_HOME);
     }
     else {
         Serial.printf("[BLE] ERROR: Unknown command '%s'\n", cmdBuffer);

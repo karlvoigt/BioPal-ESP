@@ -5,6 +5,9 @@
 #include <LittleFS.h>
 #include <FS.h>
 
+// External BLE function (defined in BLE_Functions.cpp)
+extern void sendBLEStatus(const char* status);
+
 /*=========================STATE VARIABLES=========================*/
 
 // Current GUI state
@@ -129,6 +132,9 @@ void setGUIState(GUIState newState) {
 
     Serial.printf("[GUI] State change: %d -> %d\n", currentGUIState, newState);
 
+    // Save old state for entry actions
+    GUIState oldState = currentGUIState;
+
     // State exit actions
     switch (currentGUIState) {
         case GUI_SETTINGS:
@@ -146,6 +152,10 @@ void setGUIState(GUIState newState) {
     switch (newState) {
         case GUI_HOME:
             menuSelection = 0;  // Reset to START button
+            // Notify WebUI if we're stopping a measurement
+            if (oldState == GUI_BASELINE_PROGRESS || oldState == GUI_FINAL_PROGRESS) {
+                sendBLEStatus("Stopped");
+            }
             break;
 
         case GUI_SETTINGS:
@@ -160,6 +170,10 @@ void setGUIState(GUIState newState) {
         case GUI_BASELINE_PROGRESS:
         case GUI_FINAL_PROGRESS:
             resetMeasurementTracking();
+            // Notify WebUI that measurement started
+            char statusMsg[32];
+            snprintf(statusMsg, sizeof(statusMsg), "Measuring:%d", num_duts);
+            sendBLEStatus(statusMsg);
             break;
 
         default:
@@ -202,7 +216,7 @@ void updateProgressScreen(uint8_t dutIndex) {
 
 void resetMeasurementTracking() {
     currentDUT = 0;
-    totalDUTs = selectedDUTCount;
+    totalDUTs = num_duts;  // Use global num_duts which can be set from BLE or display
     progressPercent = 0.0f;
     for (uint8_t i = 0; i < 4; i++) {
         dutStatus[i] = false;
