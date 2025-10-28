@@ -4,9 +4,6 @@
 #include <Arduino.h>
 
 /*=========================BODE PLOT=========================*/
-// Initialize TFT display for Bode plots
-// Must be called before drawing plots
-void initBodePlot();
 
 // Draw Bode plot for a specific DUT
 // dutIndex: 0-3 (DUT 1-4)

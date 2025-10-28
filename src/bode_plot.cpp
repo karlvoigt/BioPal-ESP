@@ -106,13 +106,6 @@ static void drawDashedLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint1
 
 /*=========================PUBLIC FUNCTIONS=========================*/
 
-void initBodePlot() {
-    tft.init();
-    tft.setRotation(1);  // Landscape orientation (0=portrait, 1=landscape)
-    tft.fillScreen(COLOR_BG);
-
-    Serial.println("TFT initialized for Bode plots (landscape mode)");
-}
 
 void drawBodePlot(uint8_t dutIndex) {
     if (dutIndex >= MAX_DUT_COUNT) {

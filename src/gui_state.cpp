@@ -108,6 +108,12 @@ bool saveGUISettings() {
 /*=========================STATE MANAGEMENT=========================*/
 
 void initGUIState() {
+    tft.init();
+    tft.setRotation(3);  // Landscape orientation (0=portrait, 1=landscape)
+    
+    drawSplashScreen();
+
+    Serial.println("TFT initialized");
     // Create button event queue
     buttonEventQueue = xQueueCreate(10, sizeof(ButtonEvent));
     if (buttonEventQueue == nullptr) {

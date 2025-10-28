@@ -25,6 +25,8 @@ bool finalMeasurementDone = false;
 uint8_t startIDX = 0;
 uint8_t endIDX = 37;
 uint8_t num_duts = 1;
+// Splash screen timer (2 seconds)
+unsigned long splashStartTime;
 
 // FreeRTOS queue for measurement data
 QueueHandle_t measurementQueue;
@@ -204,18 +206,6 @@ void processBLECommands() {
 void taskGUI(void* parameter) {
     Serial.println("GUI task started");
 
-    // Initialize TFT display
-    initBodePlot();
-    Serial.println("TFT display initialized");
-
-    // Initialize sprite buffer for flicker-free rendering
-    if (!initSpriteBuffer()) {
-        Serial.println("WARNING: Sprite buffer failed to initialize - rendering will have flicker");
-    }
-
-    // Initialize GUI state machine
-    initGUIState();
-
     // Initialize button interrupts
     initButtons();
     Serial.println("Button interrupts initialized");
@@ -223,8 +213,6 @@ void taskGUI(void* parameter) {
     // Draw splash screen
     renderCurrentScreen();
 
-    // Splash screen timer (2 seconds)
-    unsigned long splashStartTime = millis();
     bool splashDone = false;
 
     Serial.println("\n=== BioPal ESP32 Ready ===");
@@ -321,8 +309,17 @@ void taskGUI(void* parameter) {
 void setup() {
     // Initialize serial for debugging
     Serial.begin(115200);
-    delay(1000);  // Give serial time to initialize
+    vTaskDelay(pdMS_TO_TICKS(100));  // Wait for serial to initialize
     Serial.println("\n\n=== BioPal ESP32-C6 Impedance Analyzer ===");
+
+    // Initialize sprite buffer for flicker-free rendering
+    if (!initSpriteBuffer()) {
+        Serial.println("WARNING: Sprite buffer failed to initialize - rendering will have flicker");
+    }
+
+    // Initialize GUI state machine
+    initGUIState();
+    splashStartTime = millis();
 
     // Load calibration data from filesystem
     Serial.println("Loading calibration data...");

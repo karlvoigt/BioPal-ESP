@@ -1,11 +1,17 @@
 #include "gui_screens.h"
 #include "defines.h"
+#include <LittleFS.h>
+#include "logo.h"
 
 // TFT instance (shared with bode_plot.cpp)
 extern TFT_eSPI tft;
 
 // Sprite for double buffering (full screen)
 TFT_eSprite sprite = TFT_eSprite(&tft);
+
+// PNG rendering position
+int16_t png_xpos = 0;
+int16_t png_ypos = 0;
 
 // External state variables (from gui_state.cpp)
 extern GUIState currentGUIState;
@@ -51,6 +57,7 @@ void printHeapStats() {
     Serial.printf("[HEAP] Total: %d bytes, Used: %d bytes (%.1f%%), Free: %d bytes\n",
         heapSize, usedHeap, usedPercent, freeHeap);
 }
+
 
 /*=========================HELPER DRAWING FUNCTIONS=========================*/
 
@@ -225,21 +232,21 @@ void renderCurrentScreen() {
 
 void drawSplashScreen() {
     // Clear screen with gradient background
-    drawGradientRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_PRIMARY_START, COLOR_PRIMARY_END, false);
+    // drawGradientRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_PRIMARY_START, COLOR_PRIMARY_END, false);
 
-    // Draw "BioPal" text (logo will be added later)
-    sprite.setTextColor(COLOR_WHITE);
-    sprite.setTextDatum(MC_DATUM);
-    sprite.drawString("BioPal", SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 20, 7);
-
-    // Draw subtitle
-    sprite.setTextDatum(TC_DATUM);
-    sprite.drawString("Impedance Analyzer", SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 40, 2);
-
-    // Note: Logo image will be added when converted to C array
-
-    // Push sprite to screen
-    sprite.pushSprite(0, 0);
+    // sprite.pushSprite(0, 0);  
+    // Display logo centered                       │
+    int16_t x = (SCREEN_WIDTH - LOGO_WIDTH) / 2;   
+    int16_t y = 0;  // Position from top          
+    tft.setSwapBytes(true);
+    tft.pushImage(x, y, LOGO_WIDTH, LOGO_HEIGHT,logo);    
+    tft.setSwapBytes(false);                                        
+                                                    
+    // Subtitle                                    
+    // sprite.setTextColor(COLOR_WHITE);              
+    // sprite.setTextDatum(TC_DATUM);                 
+    // sprite.drawString("Impedance Analyzer",SCREEN_WIDTH/2, SCREEN_HEIGHT - 40, 2);            
+             
 }
 
 void drawHomeScreen() {
