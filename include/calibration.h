@@ -132,6 +132,10 @@ extern int numTIALowFreqs;
 extern FreqCalPoint pgaCalData[8][MAX_CAL_FREQUENCIES];
 extern int numPGAFreqs[8];
 
+// PS Trace calibration: Final calibration step to match PalmSens reference
+extern FreqCalPoint psTraceCalData[MAX_CAL_FREQUENCIES];
+extern int numPSTraceFreqs;
+
 // Calibration arrays
 // extern float v_phase_shifts[MAX_CAL_FREQUENCIES];
 // extern float v_gain[MAX_CAL_FREQUENCIES];
@@ -194,5 +198,17 @@ SimpleCalPoint* getPGACalPoint(uint32_t freq, uint8_t pgaGain);
 // Formula: mag = (uncalibrated / v_gain) * tia_gain * pga_gain
 //          phase = uncalibrated_phase - v_phase + tia_phase + pga_phase
 bool calibrateWithSeparateFiles(ImpedancePoint& point);
+
+/*=========================PS TRACE CALIBRATION FUNCTIONS=========================*/
+
+// Load PS Trace calibration from /data/ps_trace.csv
+// Format: freq_hz,mag_ratio,phase_offset
+// Returns true on success, false on failure
+bool loadPSTraceCalibration();
+
+// Apply PS Trace calibration as final step
+// mag_final = mag_calibrated * mag_ratio
+// phase_final = phase_calibrated + phase_offset
+void applyPSTraceCalibration(ImpedancePoint& point);
 
 #endif // CALIBRATION_H

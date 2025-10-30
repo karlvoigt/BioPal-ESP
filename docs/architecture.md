@@ -312,11 +312,18 @@ struct CalibrationCoefficients {
 
 /data/pga_1.csv through /data/pga_200.csv
     Format: frequency_hz, gain_factor, phase_offset
+
+/data/ps_trace.csv (NEW - PS Trace calibration)
+    Format: freq_hz, mag_ratio, phase_offset
+    Example: 1, 1.0234, -2.34
+    Purpose: Final calibration step to match PalmSens reference exactly
 ```
 
-**Calibration Process**:
+**Two-Step Calibration Process**:
 ```cpp
 ImpedancePoint calibrate(ImpedancePoint raw) {
+    // STEP 1: Apply existing calibration (one of three modes)
+
     // Mode 1: Lookup table interpolation
     FreqCalibrationData cal = getCalibrationPoint(freq, tia, pga);
     calibrated.magnitude = raw.magnitude / cal.z_mag_gain;
@@ -332,14 +339,34 @@ ImpedancePoint calibrate(ImpedancePoint raw) {
     float tia_gain = getTIAGain(freq, tia_mode);
     float pga_gain = getPGAGain(freq, pga_value);
     calibrated.magnitude = raw.magnitude / (v_gain * tia_gain * pga_gain);
+
+    // STEP 2: Apply PS Trace calibration (final refinement)
+    applyPSTraceCalibration(calibrated);
+    // calibrated.magnitude *= mag_ratio
+    // calibrated.phase += phase_offset
 }
 ```
 
+**Calibration Flow**:
+```
+Raw Measurement (STM32)
+    ↓
+Existing Calibration (calibration.csv, formula, or separate files)
+    ↓ Z_intermediate
+PS Trace Calibration (ps_trace.csv)
+    Z_final.magnitude = Z_intermediate.magnitude × mag_ratio
+    Z_final.phase = Z_intermediate.phase + phase_offset
+    ↓
+Final Calibrated Impedance (matches PalmSens exactly)
+```
+
 **Key Functions**:
-- `loadCalibrationData()` - Mount LittleFS, parse CSV files
+- `loadCalibrationData()` - Mount LittleFS, parse CSV files, load PS Trace
 - `getCalibrationPoint(freq, tia, pga)` - Lookup with linear interpolation
-- `calibrate(ImpedancePoint)` - Apply corrections
+- `calibrate(ImpedancePoint)` - Apply corrections (two-step process)
 - `calculateCoefficients()` - Fit quadratic formula to data
+- `loadPSTraceCalibration()` - Load PS Trace calibration file
+- `applyPSTraceCalibration(point)` - Apply final PS Trace correction
 
 ---
 

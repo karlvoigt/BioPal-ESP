@@ -318,6 +318,10 @@ int numTIALowFreqs = 0;
 FreqCalPoint pgaCalData[8][MAX_CAL_FREQUENCIES];
 int numPGAFreqs[8] = {0};
 
+// PS Trace calibration data (final calibration step)
+FreqCalPoint psTraceCalData[MAX_CAL_FREQUENCIES];
+int numPSTraceFreqs = 0;
+
 /*=========================HELPER FUNCTIONS=========================*/
 
 // Find the index of a frequency in the calibration data
@@ -364,7 +368,10 @@ CalibrationPoint* getCalibrationPoint(uint32_t freq, bool lowTIA, uint8_t pgaGai
 bool loadCalibrationData() {
 
     if (calibrationMode == CALIBRATION_MODE_SEPARATE_FILES) {
-        return (loadVoltageCalibration() && loadTIACalibration() && loadPGACalibration());
+        bool success = (loadVoltageCalibration() && loadTIACalibration() && loadPGACalibration());
+        // Load PS Trace calibration (final calibration step)
+        loadPSTraceCalibration();
+        return success;
     }
     // Initialize LittleFS
     if(!LittleFS.begin(true)) {
@@ -443,6 +450,10 @@ bool loadCalibrationData() {
     LittleFS.end();
 
     Serial.printf("Loaded calibration data for %d frequencies\n", numCalibrationFreqs);
+
+    // Load PS Trace calibration (final calibration step)
+    loadPSTraceCalibration();
+
     return true;
 }
 
@@ -567,13 +578,15 @@ bool calibrateWithFormula(ImpedancePoint& point) {
 }
 
 bool calibrate(ImpedancePoint& point) {
+    bool success = false;
+
     // Check calibration mode and route to appropriate method
     if(calibrationMode == CALIBRATION_MODE_FORMULA) {
         // Use formula-based calibration
-        return calibrateWithFormula(point);
+        success = calibrateWithFormula(point);
     } else if(calibrationMode == CALIBRATION_MODE_SEPARATE_FILES) {
         // Use separate files calibration
-        return calibrateWithSeparateFiles(point);
+        success = calibrateWithSeparateFiles(point);
     } else {
         // Use lookup table calibration
         CalibrationPoint* calPoint = getCalibrationPoint(point.freq_hz, point.tia_gain, point.pga_gain);
@@ -585,11 +598,18 @@ bool calibrate(ImpedancePoint& point) {
             // Apply calibration
             point.Z_magnitude = point.Z_magnitude * calPoint->impedance_gain;
             point.Z_phase -= calPoint->phase_offset;
-            return true;
+            success = true;
         } else {
-            return false; // Calibration point not found
+            success = false; // Calibration point not found
         }
     }
+
+    // Apply PS Trace calibration as final step (always applied if data loaded)
+    if(success) {
+        applyPSTraceCalibration(point);
+    }
+
+    return success;
 }
 
 /*=========================MODE CONTROL FUNCTIONS=========================*/
@@ -894,6 +914,90 @@ bool loadSeparateCalibrationFiles() {
     }
 
     return success;
+}
+
+/*=========================PS TRACE CALIBRATION FUNCTIONS=========================*/
+
+// Load PS Trace calibration from /data/ps_trace.csv
+// CSV Format: freq_hz,mag_ratio,phase_offset
+bool loadPSTraceCalibration() {
+    // Initialize LittleFS
+    if(!LittleFS.begin(true)) {
+        Serial.println("Failed to mount LittleFS for PS Trace calibration");
+        return false;
+    }
+
+    // Open PS Trace calibration file
+    File file = LittleFS.open("/ps_trace.csv", "r");
+    if(!file) {
+        Serial.println("Warning: Failed to open ps_trace.csv - PS Trace calibration not applied");
+        LittleFS.end();
+        return false;
+    }
+
+    numPSTraceFreqs = 0;
+
+    // Read file line by line
+    while(file.available() && numPSTraceFreqs < MAX_CAL_FREQUENCIES) {
+        String line = file.readStringUntil('\n');
+        line.trim();
+
+        // Skip empty lines, comments, and header
+        if(line.length() == 0 || line.startsWith("#") || line.startsWith("freq")) {
+            continue;
+        }
+
+        // Parse CSV line: freq_hz,mag_ratio,phase_offset
+        float freq_hz = 0;
+        float mag_ratio = 1.0;
+        float phase_offset = 0.0;
+
+        int fieldCount = sscanf(line.c_str(), "%f,%f,%f", &freq_hz, &mag_ratio, &phase_offset);
+
+        if(fieldCount != 3) {
+            Serial.printf("Invalid PS Trace cal line: %s\n", line.c_str());
+            continue;
+        }
+
+        // Store calibration point (freq in Hz, mag_ratio as gain, phase_offset)
+        psTraceCalData[numPSTraceFreqs] = FreqCalPoint(round(freq_hz), mag_ratio, phase_offset);
+        numPSTraceFreqs++;
+    }
+
+    file.close();
+    LittleFS.end();
+
+    Serial.printf("✓ Loaded PS Trace calibration for %d frequencies\n", numPSTraceFreqs);
+    return numPSTraceFreqs > 0;
+}
+
+// Apply PS Trace calibration as final step
+// mag_final = mag_calibrated * mag_ratio
+// phase_final = phase_calibrated + phase_offset
+void applyPSTraceCalibration(ImpedancePoint& point) {
+    // If no PS Trace calibration data loaded, skip
+    if(numPSTraceFreqs == 0) {
+        return;
+    }
+
+    // Find exact frequency match in PS Trace data
+    uint32_t target_freq = round(point.freq_hz);
+
+    for(int i = 0; i < numPSTraceFreqs; i++) {
+        if(psTraceCalData[i].frequency_hz == target_freq) {
+            // Found matching frequency - apply calibration
+            float mag_ratio = psTraceCalData[i].calPoint.gain;
+            float phase_offset = psTraceCalData[i].calPoint.phase_offset;
+
+            point.Z_magnitude *= mag_ratio;
+            point.Z_phase += phase_offset;
+
+            return; // Done
+        }
+    }
+
+    // If we get here, no exact frequency match found
+    // Serial.printf("Warning: No PS Trace calibration found for %.1f Hz\n", point.freq_hz);
 }
 
 // Get voltage calibration point for specific frequency

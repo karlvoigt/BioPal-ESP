@@ -25,7 +25,7 @@ class BioPalServerCallbacks: public BLEServerCallbacks {
         connectionChanged = true;
         Serial.println("[BLE] Client connected");
         Serial.printf("[BLE] Connection count: %d\n", pServer->getConnectedCount());
-        drawConnectionIndicatorDefault(true);
+        // drawConnectionIndicatorDefault(true);
     }
 
     void onDisconnect(BLEServer* pServer) {
@@ -34,7 +34,6 @@ class BioPalServerCallbacks: public BLEServerCallbacks {
         Serial.println("[BLE] Client disconnected");
         Serial.println("[BLE] Restarting advertising...");
         drawConnectionIndicatorDefault(false);
-        delay(500);
         pServer->startAdvertising();
         Serial.println("[BLE] Advertising restarted");
     }
@@ -61,15 +60,17 @@ void initBLE() {
     Serial.println("[BLE] Initializing BLE...");
 
     // Create BLE device
+    // Set mtu size before init to allow larger packe
     BLEDevice::init(BLE_DEVICE_NAME);
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_N12);
     Serial.printf("[BLE] Device name: %s\n", BLE_DEVICE_NAME);
 
     // Create BLE server
+    BLEDevice::setMTU(517);
     pServer = BLEDevice::createServer();
     pServer->setCallbacks(new BioPalServerCallbacks());
 
     // Set MTU size for larger packets
-    BLEDevice::setMTU(517);
     Serial.println("[BLE] Server created with MTU=517");
 
     // Create BLE service
@@ -100,14 +101,12 @@ void initBLE() {
     Serial.println("[BLE] Service started");
 
     // Allow BLE stack to stabilize before advertising
-    delay(500);
     Serial.println("[BLE] BLE stack stabilized");
 
-    // Start advertising
+    // Start advertising - PROPERLY SPLIT DATA TO AVOID 31-BYTE OVERFLOW
     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
 
+    pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
     // Set advertising interval for fast discovery (20-40ms)
     pAdvertising->setMinInterval(0x20);  // 20ms (0x20 * 0.625ms)
     pAdvertising->setMaxInterval(0x40);  // 40ms (0x40 * 0.625ms)

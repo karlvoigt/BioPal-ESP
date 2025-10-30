@@ -395,8 +395,9 @@ voltage.csv:        ~2 KB   (38 frequencies)
 tia_high.csv:       ~2 KB   (38 frequencies)
 tia_low.csv:        ~2 KB   (38 frequencies)
 pga_*.csv (×8):     ~16 KB  (8 files × 2 KB each)
+ps_trace.csv:       ~2 KB   (38 frequencies, final calibration step)
 
-Total:              ~44 KB / 128 KB partition (34% usage)
+Total:              ~46 KB / 128 KB partition (36% usage)
 ```
 
 ### Filesystem Layout
@@ -414,6 +415,7 @@ Total:              ~44 KB / 128 KB partition (34% usage)
 ├── pga_50.csv            (PGA gain = 50)
 ├── pga_100.csv           (PGA gain = 100)
 ├── pga_200.csv           (PGA gain = 200)
+├── ps_trace.csv          (PS Trace final calibration - matches PalmSens)
 └── gui_settings.dat      (Binary settings, 128 bytes)
 ```
 

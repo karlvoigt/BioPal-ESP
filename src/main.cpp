@@ -308,8 +308,9 @@ void taskGUI(void* parameter) {
 /*=========================SETUP=========================*/
 void setup() {
     // Initialize serial for debugging
+    vTaskDelay(500);  // Short delay to allow stable startup
     Serial.begin(115200);
-    vTaskDelay(pdMS_TO_TICKS(100));  // Wait for serial to initialize
+    vTaskDelay(500);  // Wait for serial to initialize
     Serial.println("\n\n=== BioPal ESP32-C6 Impedance Analyzer ===");
 
     // Initialize sprite buffer for flicker-free rendering
@@ -358,3 +359,178 @@ void loop() {
     // Empty - FreeRTOS scheduler handles everything
     vTaskDelay(portMAX_DELAY);
 }
+
+// #include <Arduino.h>
+// #include <BLEDevice.h>
+// #include <BLEUtils.h>
+// #include <BLEServer.h>
+
+// // BLE UUIDs - these must match what the web app uses
+// #define SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
+// #define CHARACTERISTIC_UUID_RX   "12345678-1234-5678-1234-56789abcdef1"  // WebUI -> ESP32
+// #define CHARACTERISTIC_UUID_TX   "12345678-1234-5678-1234-56789abcdef2"  // ESP32 -> WebUI
+
+// // BLE objects
+// BLEServer* pServer = nullptr;
+// BLECharacteristic* pTxCharacteristic = nullptr;
+// BLECharacteristic* pRxCharacteristic = nullptr;
+
+// // Connection state
+// bool deviceConnected = false;
+// bool oldDeviceConnected = false;
+
+// // Data to send
+// uint32_t dataCounter = 0;
+// unsigned long lastSendTime = 0;
+// const unsigned long SEND_INTERVAL = 1000; // Send data every 1 second
+
+// // LED state
+// bool ledState = false;
+// const int LED_PIN = 8; // ESP32-C6 built-in LED
+
+// // Server callbacks
+// class MyServerCallbacks: public BLEServerCallbacks {
+//     void onConnect(BLEServer* pServer) {
+//         deviceConnected = true;
+//         Serial.println("Client connected");
+//     }
+
+//     void onDisconnect(BLEServer* pServer) {
+//         deviceConnected = false;
+//         Serial.println("Client disconnected");
+//     }
+// };
+
+// // Characteristic callbacks for receiving commands
+// class MyCallbacks: public BLECharacteristicCallbacks {
+//     void onWrite(BLECharacteristic* pCharacteristic) {
+//         String value = pCharacteristic->getValue().c_str();
+
+//         if (value.length() > 0) {
+//             Serial.print("Received command: ");
+//             Serial.println(value);
+
+//             // Parse and execute commands
+//             if (value == "LED_ON") {
+//                 ledState = true;
+//                 digitalWrite(LED_PIN, HIGH);
+//                 Serial.println("LED turned ON");
+//             }
+//             else if (value == "LED_OFF") {
+//                 ledState = false;
+//                 digitalWrite(LED_PIN, LOW);
+//                 Serial.println("LED turned OFF");
+//             }
+//             else if (value == "LED_TOGGLE") {
+//                 ledState = !ledState;
+//                 digitalWrite(LED_PIN, ledState);
+//                 Serial.print("LED toggled to: ");
+//                 Serial.println(ledState ? "ON" : "OFF");
+//             }
+//             else if (value == "GET_STATUS") {
+//                 // Send immediate status update
+//                 char statusBuffer[50];
+//                 snprintf(statusBuffer, sizeof(statusBuffer), "Counter:%lu,LED:%s",
+//                          (unsigned long)dataCounter, ledState ? "ON" : "OFF");
+//                 pTxCharacteristic->setValue(statusBuffer);
+//                 pTxCharacteristic->notify();
+//                 Serial.print("Status sent: ");
+//                 Serial.println(statusBuffer);
+//             }
+//             else if (value == "RESET_COUNTER") {
+//                 dataCounter = 0;
+//                 Serial.println("Counter reset");
+//             }
+//             else {
+//                 Serial.println("Unknown command");
+//             }
+//         }
+//     }
+// };
+
+// void setup() {
+//     Serial.begin(115200);
+//     Serial.println("Starting ESP32-C6 BLE Server...");
+
+//     // Initialize LED
+//     pinMode(LED_PIN, OUTPUT);
+//     digitalWrite(LED_PIN, LOW);
+
+//     // Create BLE Device
+//     BLEDevice::init("ESP32-C6-BioPal");
+
+//     // Create BLE Server
+//     pServer = BLEDevice::createServer();
+//     pServer->setCallbacks(new MyServerCallbacks());
+
+//     // Create BLE Service
+//     BLEService* pService = pServer->createService(SERVICE_UUID);
+
+//     // Create TX Characteristic (for sending data to client)
+//     pTxCharacteristic = pService->createCharacteristic(
+//         CHARACTERISTIC_UUID_TX,
+//         BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+//     );
+//     // Note: BLE2902 descriptor is automatically added when NOTIFY property is set
+
+//     // Create RX Characteristic (for receiving commands from client)
+//     pRxCharacteristic = pService->createCharacteristic(
+//         CHARACTERISTIC_UUID_RX,
+//         BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+//     );
+//     pRxCharacteristic->setCallbacks(new MyCallbacks());
+
+//     // Start the service
+//     pService->start();
+
+//     // Start advertising
+//     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
+//     pAdvertising->addServiceUUID(SERVICE_UUID);
+//     pAdvertising->setScanResponse(true);
+//     pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
+//     pAdvertising->setMinPreferred(0x12);
+//     BLEDevice::startAdvertising();
+
+//     Serial.println("BLE Server started!");
+//     Serial.println("Device name: ESP32-C6-BioPal");
+//     Serial.println("Waiting for client connection...");
+// }
+
+// void loop() {
+//     // Handle connection state changes
+//     if (deviceConnected && !oldDeviceConnected) {
+//         oldDeviceConnected = deviceConnected;
+//         Serial.println("Device connected - ready to send/receive data");
+//     }
+
+//     if (!deviceConnected && oldDeviceConnected) {
+//         delay(500); // give the bluetooth stack time to get ready
+//         pServer->startAdvertising(); // restart advertising
+//         Serial.println("Start advertising again");
+//         oldDeviceConnected = deviceConnected;
+//     }
+
+//     // Send periodic data updates when connected
+//     if (deviceConnected) {
+//         unsigned long currentTime = millis();
+
+//         if (currentTime - lastSendTime >= SEND_INTERVAL) {
+//             lastSendTime = currentTime;
+//             dataCounter++;
+
+//             // Create data string with counter and LED status
+//             char dataBuffer[50];
+//             snprintf(dataBuffer, sizeof(dataBuffer), "Counter:%lu,LED:%s",
+//                      (unsigned long)dataCounter, ledState ? "ON" : "OFF");
+
+//             // Send notification to client
+//             pTxCharacteristic->setValue(dataBuffer);
+//             pTxCharacteristic->notify();
+
+//             Serial.print("Sent data: ");
+//             Serial.println(dataBuffer);
+//         }
+//     }
+
+//     delay(10);
+// }

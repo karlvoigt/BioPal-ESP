@@ -14,7 +14,7 @@
 #define BLE_CHARACTERISTIC_TX   "12345678-1234-5678-1234-56789abcdef2"  // ESP32 -> WebUI
 
 // BLE device name
-#define BLE_DEVICE_NAME "BioPal-ESP32"
+#define BLE_DEVICE_NAME "BioPal"
 
 // BLE command types
 #define BLE_CMD_BASELINE   "BASELINE_START"
