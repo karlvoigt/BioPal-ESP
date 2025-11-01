@@ -13,6 +13,55 @@
 #include "gui_state.h"
 #include "gui_screens.h"
 #include "button_handler.h"
+#include <WiFi.h>
+#include <LittleFS.h>
+#include <esp_http_server.h>
+#include "ssl_cert.h"
+
+// External declaration for HTTPS server (not properly exposed in Arduino ESP32-C6)
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef struct httpd_ssl_config httpd_ssl_config_t;
+struct httpd_ssl_config {
+    httpd_config_t httpd;
+    const uint8_t *servercert;
+    size_t servercert_len;
+    const uint8_t *prvtkey_pem;
+    size_t prvtkey_len;
+    const uint8_t *cacert_pem;
+    size_t cacert_len;
+    const uint8_t **client_verify_cert_pem;
+    size_t *client_verify_cert_len;
+    bool use_secure_element;
+    void *user_cb;
+    bool session_tickets;
+    int port_secure;
+    int port_insecure;
+};
+esp_err_t httpd_ssl_start(httpd_handle_t *pHandle, httpd_ssl_config_t *config);
+void httpd_ssl_stop(httpd_handle_t handle);
+
+#define HTTPD_SSL_CONFIG_DEFAULT() {   \
+        .httpd = HTTPD_DEFAULT_CONFIG(),\
+        .servercert = NULL,             \
+        .servercert_len = 0,           \
+        .prvtkey_pem = NULL,           \
+        .prvtkey_len = 0,              \
+        .cacert_pem = NULL,            \
+        .cacert_len = 0,               \
+        .client_verify_cert_pem = NULL,\
+        .client_verify_cert_len = NULL,\
+        .use_secure_element = false,   \
+        .user_cb = NULL,               \
+        .session_tickets = false,      \
+        .port_secure = 443,            \
+        .port_insecure = 80,           \
+    }
+
+#ifdef __cplusplus
+}
+#endif
 
 /*=========================GLOBAL VARIABLES=========================*/
 // Initialize global impedance data arrays
@@ -30,6 +79,9 @@ unsigned long splashStartTime;
 
 // FreeRTOS queue for measurement data
 QueueHandle_t measurementQueue;
+
+// WiFi AP and HTTPS Web Server (ESP-IDF native)
+httpd_handle_t httpsServer = NULL;
 
 /*=========================TASK: UART READER=========================*/
 // Task to process bytes from circular buffer
@@ -305,6 +357,149 @@ void taskGUI(void* parameter) {
     }
 }
 
+/*=========================WIFI & WEB SERVER HANDLERS=========================*/
+// Helper function to get content type from file extension
+const char* getContentType(const String& path) {
+    if (path.endsWith(".html")) return "text/html";
+    if (path.endsWith(".css")) return "text/css";
+    if (path.endsWith(".js")) return "application/javascript";
+    if (path.endsWith(".json")) return "application/json";
+    if (path.endsWith(".png")) return "image/png";
+    if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+    if (path.endsWith(".gif")) return "image/gif";
+    if (path.endsWith(".ico")) return "image/x-icon";
+    if (path.endsWith(".csv")) return "text/csv";
+    return "application/octet-stream";
+}
+
+// ESP-IDF handler to serve files from LittleFS
+static esp_err_t static_file_handler(httpd_req_t *req) {
+    String path = String(req->uri);
+
+    // Default to index.html for root path
+    if (path == "/") {
+        path = "/index.html";
+    }
+
+    // Check if file exists
+    if (!LittleFS.exists(path)) {
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+    }
+
+    // Open file
+    fs::File file = LittleFS.open(path, "r");
+    if (!file) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Set content type
+    httpd_resp_set_type(req, getContentType(path));
+
+    // Read and send file in chunks
+    uint8_t buffer[1024];
+    while (file.available()) {
+        int bytesRead = file.read(buffer, sizeof(buffer));
+        if (httpd_resp_send_chunk(req, (const char*)buffer, bytesRead) != ESP_OK) {
+            file.close();
+            return ESP_FAIL;
+        }
+    }
+    file.close();
+
+    // Signal end of response
+    httpd_resp_send_chunk(req, NULL, 0);
+    return ESP_OK;
+}
+
+/*=========================WIFI & WEB SERVER INIT=========================*/
+void initWiFiAndWebServer() {
+    Serial.println("Initializing WiFi Access Point...");
+
+    // Configure WiFi AP
+    const char* ssid = "BioPal Impedance Analyser";
+    const char* password = "";  // Open network (no password)
+
+    // Start WiFi in AP mode
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(ssid);
+
+    // Get and display IP address (usually 192.168.4.1 by default)
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("WiFi AP Started: ");
+    Serial.println(ssid);
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
+    Serial.println("Connect to this WiFi and browse to https://" + IP.toString());
+
+    // Initialize LittleFS
+    if (!LittleFS.begin(true)) {
+        Serial.println("ERROR: LittleFS mount failed");
+        return;
+    }
+    Serial.println("LittleFS mounted successfully");
+
+    // Configure HTTPS server
+    httpd_ssl_config_t conf = HTTPD_SSL_CONFIG_DEFAULT();
+    conf.httpd.server_port = 443;
+    conf.httpd.lru_purge_enable = true;
+
+    // Use embedded SSL certificates
+    conf.servercert = (const uint8_t*)server_cert;
+    conf.servercert_len = strlen(server_cert);
+    conf.prvtkey_pem = (const uint8_t*)server_key;
+    conf.prvtkey_len = strlen(server_key);
+
+    // Debug output
+    Serial.printf("Certificate length: %d bytes\n", conf.servercert_len);
+    Serial.printf("Private key length: %d bytes\n", conf.prvtkey_len);
+    Serial.printf("Certificate pointer: %p\n", conf.servercert);
+    Serial.printf("Private key pointer: %p\n", conf.prvtkey_pem);
+
+    if (conf.servercert_len == 0) {
+        Serial.println("ERROR: Certificate is empty!");
+        return;
+    }
+    if (conf.prvtkey_len == 0) {
+        Serial.println("ERROR: Private key is empty!");
+        return;
+    }
+
+    Serial.println("Starting HTTPS server...");
+
+    // Start HTTPS server
+    esp_err_t ret = httpd_ssl_start(&httpsServer, &conf);
+    if (ret != ESP_OK) {
+        Serial.printf("ERROR: Failed to start HTTPS server: %s\n", esp_err_to_name(ret));
+        Serial.printf("Error code: 0x%x\n", ret);
+        return;
+    }
+
+    // Register URI handlers
+    // Root handler (serves /index.html)
+    httpd_uri_t root_uri = {
+        .uri       = "/",
+        .method    = HTTP_GET,
+        .handler   = static_file_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(httpsServer, &root_uri);
+
+    // Wildcard handler for all other files
+    httpd_uri_t wildcard_uri = {
+        .uri       = "/*",
+        .method    = HTTP_GET,
+        .handler   = static_file_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(httpsServer, &wildcard_uri);
+
+    Serial.println("HTTPS Web Server started successfully on port 443");
+    Serial.println("Ready to serve WebUI over HTTPS!");
+    Serial.println("Web Bluetooth will work with HTTPS secure context");
+}
+
 /*=========================SETUP=========================*/
 void setup() {
     // Initialize serial for debugging
@@ -344,6 +539,9 @@ void setup() {
     initBLE();
     Serial.println("BLE initialized - ready for WebUI connection");
 
+    // Initialize WiFi AP and HTTPS Web Server
+    initWiFiAndWebServer();
+
     // Create FreeRTOS tasks
     xTaskCreate(taskUARTReader, "UART Reader", 4096, nullptr, 2, nullptr);
     xTaskCreate(taskDataProcessor, "Data Processor", 8192, nullptr, 2, nullptr);
@@ -355,6 +553,7 @@ void setup() {
 
 /*=========================LOOP=========================*/
 // Arduino loop is not used - everything runs in FreeRTOS tasks
+// ESP-IDF HTTPS server runs in its own task, no loop() needed
 void loop() {
     // Empty - FreeRTOS scheduler handles everything
     vTaskDelay(portMAX_DELAY);

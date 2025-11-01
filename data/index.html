@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioPal Impedance Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        /* Page visibility */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .horizontal-sections {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 25px;
+            align-items: stretch;
+        }
+
+        .horizontal-sections .section {
+            flex: 1;
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .horizontal-sections .preset-group,
+        .horizontal-sections .number-input-group {
+            flex: 1;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #dee2e6;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .btn-large {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .status-label {
+            font-size: 14px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .status-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .status-connected {
+            color: #28a745;
+        }
+
+        .status-disconnected {
+            color: #dc3545;
+        }
+
+        .connection-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 8px;
+        }
+
+        .indicator-connected {
+            background: #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        .indicator-disconnected {
+            background: #dc3545;
+        }
+
+        /* Number input styling */
+        .number-input-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .number-input-group button {
+            min-width: 50px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 24px;
+            padding: 0;
+        }
+
+        .number-input-group input {
+            width: 80px;
+            height: 60px;
+            font-size: 32px;
+            font-weight: 700;
+            text-align: center;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            background: white;
+        }
+
+        /* Frequency range dropdown styling */
+        .frequency-range-group {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .frequency-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .frequency-row label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+            min-width: 50px;
+        }
+
+        .frequency-row select {
+            flex: 1;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .frequency-row select:hover {
+            border-color: #667eea;
+        }
+
+        .frequency-row select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Preset configuration styling */
+        .preset-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .preset-group select {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-group select:hover {
+            border-color: #667eea;
+        }
+
+        .preset-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Progress bar */
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        /* Sensor status indicators */
+        .sensor-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .sensor-status-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .sensor-status-item.pending {
+            opacity: 0.5;
+        }
+
+        .sensor-status-item.measuring {
+            border-color: #667eea;
+            background: #e7e9fc;
+        }
+
+        .sensor-status-item.complete {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .sensor-status-item .sensor-label {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .sensor-status-item .sensor-icon {
+            font-size: 24px;
+        }
+
+        /* Chart container */
+        .chart-container {
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        #impedanceChart {
+            width: 100% !important;
+            height: 400px !important;
+        }
+
+        /* Toggle buttons for plot type */
+        .toggle-group {
+            display: flex;
+            gap: 0;
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 15px;
+        }
+
+        .toggle-group button {
+            flex: 1;
+            border-radius: 6px;
+            background: transparent;
+            color: #495057;
+            padding: 10px;
+            min-width: 0;
+        }
+
+        .toggle-group button.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Sensor selector for results */
+        .sensor-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .sensor-selector button {
+            flex: 1;
+            min-width: 0;
+            padding: 10px;
+        }
+
+        .sensor-selector button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* Risk level indicator */
+        .risk-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 12px 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .risk-indicator .risk-label {
+            color: #666;
+        }
+
+        .risk-indicator .risk-value {
+            padding: 6px 16px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 13px;
+        }
+
+        /* Frequency Range Slider */
+        .freq-range-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 8px;
+        }
+
+        .freq-range-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .freq-range-values {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .range-slider-container {
+            position: relative;
+            height: 40px;
+            width: 100%;
+        }
+
+        .range-slider {
+            position: absolute;
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            outline: none;
+            pointer-events: none;
+        }
+
+        /* Track styling */
+        .range-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, #e0e7ff 0%, #667eea 100%);
+            border-radius: 3px;
+        }
+
+        .range-slider::-moz-range-track {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, #e0e7ff 0%, #667eea 100%);
+            border-radius: 3px;
+        }
+
+        /* Thumb styling */
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            pointer-events: auto;
+            margin-top: -7px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .range-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .range-slider::-webkit-slider-thumb:hover {
+            background: #f0f4ff;
+            transform: scale(1.1);
+        }
+
+        .range-slider::-moz-range-thumb:hover {
+            background: #f0f4ff;
+            transform: scale(1.1);
+        }
+
+        .range-slider::-webkit-slider-thumb:active {
+            background: #667eea;
+        }
+
+        .range-slider::-moz-range-thumb:active {
+            background: #667eea;
+        }
+
+        /* Make max slider appear on top */
+        .range-max {
+            z-index: 2;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .info-banner {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+  <script type="module" crossorigin src="/assets/index-k0a9XRqK.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BioPal</h1>
+            <p>Impedance Analyzer - Web Interface</p>
+        </div>
+
+        <div class="content">
+            <!-- Page 1: Connection & Setup -->
+            <div id="page-setup" class="page active">
+                <!-- Connection Section -->
+                <div class="section">
+                    <div class="section-title">Connection</div>
+                    <div class="button-group">
+                        <button id="connectBtn" class="btn-primary">Connect BLE</button>
+                        <button id="disconnectBtn" class="btn-secondary" disabled>Disconnect</button>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-row">
+                            <span class="status-label">Status:</span>
+                            <span id="statusText" class="status-value status-disconnected">
+                                Not Connected
+                                <span class="connection-indicator indicator-disconnected"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preset and Sensor Configuration Row -->
+                <div class="horizontal-sections">
+                    <!-- Preset Configuration Section -->
+                    <div class="section">
+                        <div class="section-title">Measurement Preset</div>
+                        <div class="preset-group">
+                            <button id="loadPresetBtn" class="btn-secondary">Load Presets from CSV</button>
+                            <input type="file" id="presetFileInput" accept=".csv" style="display: none;">
+                            <select id="presetSelect">
+                                <option value="Custom">Custom</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Sensor Selection Section -->
+                    <div class="section">
+                        <div class="section-title">Number of Sensors</div>
+                        <div class="number-input-group">
+                            <button id="sensorDecrementBtn" class="btn-secondary">−</button>
+                            <input type="number" id="sensorCountInput" value="4" min="1" max="4" readonly>
+                            <button id="sensorIncrementBtn" class="btn-secondary">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frequency Range Selection -->
+                <div class="section">
+                    <div class="section-title">Frequency Range</div>
+                    <div class="frequency-range-group">
+                        <div class="frequency-row">
+                            <label for="startFreqSelect">Start:</label>
+                            <select id="startFreqSelect">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="frequency-row">
+                            <label for="endFreqSelect">End:</label>
+                            <select id="endFreqSelect">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Start Measurement Section -->
+                <div class="section">
+                    <button id="startMeasurementBtn" class="btn-primary btn-large" disabled>
+                        Start Baseline Measurement
+                    </button>
+                    <button id="loadMeasurementBtn" class="btn-secondary btn-large">
+                        Load Measurement
+                    </button>
+                    <input type="file" id="csvFileInput" accept=".csv" multiple style="display: none;">
+                </div>
+            </div>
+
+            <!-- Page 2: Measurement Progress -->
+            <div id="page-progress" class="page">
+                <div class="section">
+                    <div class="section-title">Measurement in Progress</div>
+
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill" style="width: 0%">0%</div>
+                        </div>
+                        <div class="progress-text" id="progressText">Initializing...</div>
+                    </div>
+
+                    <div class="sensor-status-grid" id="sensorStatusGrid">
+                        <!-- Sensor status items will be populated by JavaScript -->
+                    </div>
+
+                    <button id="stopMeasurementBtn" class="btn-danger btn-large">
+                        Stop Measurement
+                    </button>
+                </div>
+            </div>
+
+            <!-- Page 3: Results -->
+            <div id="page-results" class="page">
+                <div class="section">
+                    <div class="section-title">Measurement Results</div>
+
+                    <!-- Sensor selector -->
+                    <div class="sensor-selector" id="sensorSelector">
+                        <!-- Populated by JavaScript -->
+                    </div>
+
+                    <!-- Risk level indicator -->
+                    <div class="risk-indicator" id="riskIndicator" style="display: none;">
+                        <span class="risk-label">Risk Level:</span>
+                        <span class="risk-value" id="riskValue">UNKNOWN</span>
+                    </div>
+
+                    <!-- Plot type toggle -->
+                    <div class="toggle-group">
+                        <button id="bodeBtn" class="active">Bode Plot</button>
+                        <button id="nyquistBtn">Nyquist Plot</button>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="chart-container">
+                        <canvas id="impedanceChart"></canvas>
+                    </div>
+
+                    <!-- Frequency Range Slider -->
+                    <div class="freq-range-container">
+                        <div class="freq-range-label">Frequency Range</div>
+                        <div class="freq-range-values">
+                            <span id="freqRangeStart">—</span>
+                            <span>—</span>
+                            <span id="freqRangeEnd">—</span>
+                        </div>
+                        <div class="range-slider-container">
+                            <input type="range" id="freqRangeMin" class="range-slider range-min">
+                            <input type="range" id="freqRangeMax" class="range-slider range-max">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="exportCsvBtn" class="btn-secondary">Export CSV</button>
+                        <button id="newMeasurementBtn" class="btn-primary">New Measurement</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

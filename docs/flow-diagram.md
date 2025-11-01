@@ -112,19 +112,27 @@ graph LR
     SendCmd --> Loop{For Each DUT}
 
     Loop --> Receive[Receive Measurement<br/>Data from STM32]
-
+    
     Receive --> Process[Calculate<br/>Impedance<br/>Z = V/I]
-
     Process --> Calibrate[Apply<br/>Calibration<br/>Corrections]
-
+    
     Calibrate --> Display[Update Display<br/>Progress Bar]
-
     Display --> BLE[Transmit Results<br/>via BLE & Serial for debugging]
 
     BLE -->|More DUTs| Loop
     BLE -->|Complete| Results[Show Results<br/>Screen with<br/>Final Data]
 
     Results --> Home
+
+    subgraph Processing
+        Process
+        Calibrate
+    end
+
+    subgraph Output
+        Display
+        BLE
+    end
 
     style Start fill:#90EE90
     style Init fill:#FFE4B5
