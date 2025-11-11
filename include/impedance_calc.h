@@ -6,5 +6,7 @@
 
 ImpedancePoint calcImpedance(MeasurementPoint measPoint);
 
+void calculateRiskLevel(uint8_t dutIdx, uint32_t freqStartHz, uint32_t freqEndHz);
+
 
 #endif // IMPEDANCE_CALC_H

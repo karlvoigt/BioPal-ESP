@@ -199,6 +199,32 @@ void drawCheckmark(int16_t x, int16_t y, int16_t size, uint16_t color) {
     }
 }
 
+// --- helpers for RiskLevel display (updated color mapping: green/none, yellow/low, orange/medium, red/high) ---
+static const char* riskLevelToString(RiskLevel r) {
+    switch (r) {
+        case RISK_NONE:   return "None";
+        case RISK_LOW:    return "Low";
+        case RISK_MEDIUM: return "Medium";
+        case RISK_HIGH:   return "High";
+        default:          return "Error";
+    }
+}
+
+static uint16_t riskLevelToColor(RiskLevel r) {
+    switch (r) {
+        case RISK_NONE:
+            return COLOR_GREEN;
+        case RISK_LOW:
+            return COLOR_YELLOW; 
+        case RISK_MEDIUM:
+            return COLOR_ORANGE;
+        case RISK_HIGH:
+            return COLOR_RED; // red
+        default:
+            return COLOR_BG_MEDIUM; // neutral/error
+    }
+}
+
 /*=========================SCREEN RENDERING FUNCTIONS=========================*/
 
 void renderCurrentScreen() {
@@ -443,22 +469,58 @@ void drawResultsScreen() {
     sprite.setTextDatum(MC_DATUM);
     sprite.drawString("Measurement Complete", SCREEN_WIDTH/2, 25, 4);
 
-    // Draw large checkmark
-    drawCheckmark(SCREEN_WIDTH/2, 110, 60, COLOR_SUCCESS);
+    // 2x2 grid of DUT blocks replacing the checkmark/Done area
+    const int maxCols = 2;
+    const int maxRows = 2;
+    const int16_t padding = 12;
+    // Compute available area beneath header and above button
+    const int16_t areaTop = 60;
+    const int16_t areaBottom = SCREEN_HEIGHT - 60; // leave room for button
+    const int16_t areaH = areaBottom - areaTop;
+    const int16_t areaW = SCREEN_WIDTH - 2 * padding;
 
-    // Success message
-    sprite.setTextColor(COLOR_SUCCESS);
-    sprite.setTextDatum(TC_DATUM);
-    sprite.drawString("Done!", SCREEN_WIDTH/2, 145, 4);
+    // Box sizes based on area and grid
+    const int16_t boxW = (areaW - (maxCols - 1) * padding) / maxCols;
+    const int16_t boxH = (areaH - (maxRows - 1) * padding) / maxRows;
+    const int16_t startX = padding;
+    const int16_t startY = areaTop;
 
-    // Summary text
-    char summaryText[32];
-    snprintf(summaryText, sizeof(summaryText), "%d Sensor%s tested", totalDUTs, totalDUTs > 1 ? "s" : "");
-    sprite.setTextColor(COLOR_TEXT_DARK);
-    sprite.drawString(summaryText, SCREEN_WIDTH/2, 175, 2);
+    for (uint8_t i = 0; i < totalDUTs && i < MAX_DUT_COUNT; ++i) {
+        int row = i / maxCols;
+        int col = i % maxCols;
+        int16_t boxX = startX + col * (boxW + padding);
+        int16_t boxY = startY + row * (boxH + padding);
 
-    // Button
-    drawButton(60, 195, SCREEN_WIDTH - 120, 40, "NEW TEST", true, false);
+        // Fill block with risk color (slightly desaturated background)
+        uint16_t baseColor = riskLevelToColor(riskLevels[i]);
+        // create a softer background by blending with white
+        uint16_t bgColor = lerpColor(baseColor, COLOR_WHITE, 0.55);
+        drawRoundRect(boxX, boxY, boxW, boxH, 8, bgColor, baseColor);
+
+        // Inner padding for text
+        const int16_t tx = boxX + 10;
+        const int16_t ty = boxY + 10;
+
+        // Sensor label (top-left)
+        sprite.setTextDatum(ML_DATUM);
+        sprite.setTextColor(COLOR_TEXT_DARK);
+        char dutLabel[16];
+        snprintf(dutLabel, sizeof(dutLabel), "Sensor %d", i + 1);
+        sprite.drawString(dutLabel, tx, ty, 2);
+
+        // Risk level text with percentage in brackets
+        float p = riskPercentages[i];
+        if (isnan(p)) p = 0.0f;
+        if (p < 0.0f) p = 0.0f;
+        if (p > 100.0f) p = 100.0f;
+        char riskText[24];
+        snprintf(riskText, sizeof(riskText), "%s (%.0f%%)", riskLevelToString(riskLevels[i]), p);
+        sprite.setTextDatum(ML_DATUM);
+        sprite.drawString(riskText, tx, ty + 20, 2);
+    }
+
+    // Bottom button: New Test
+    drawButton(60, SCREEN_HEIGHT - 40, SCREEN_WIDTH - 120, 36, "NEW TEST", true, false);
 
     // Push sprite to screen
     sprite.pushSprite(0, 0);

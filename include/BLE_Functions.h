@@ -55,7 +55,7 @@ void clearBLEConnectionChanged();
 bool getBLECommand(char* cmdBuffer, size_t maxLen);
 
 // Parse START command to extract number of DUTs, start index, and stop index
-void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, uint8_t& stop_idx);
+void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, uint8_t& stop_idx, float &calcStartFreq, float &calcEndFreq);
 
 /*=========================BLE DATA TRANSMISSION=========================*/
 // Send status message to WebUI

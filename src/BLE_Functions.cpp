@@ -1,4 +1,5 @@
 #include "BLE_Functions.h"
+#include "defines.h"           // << add to access global calc/risk vars
 #include <ArduinoJson.h>
 
 /*=========================GLOBAL BLE OBJECTS=========================*/
@@ -157,10 +158,14 @@ bool getBLECommand(char* cmdBuffer, size_t maxLen) {
     return true;
 }
 
-void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, uint8_t& stop_idx) {
-    // Expect format:
-    // 1) With commas: "START:n,SS,EE"  (SS and EE are exactly 2 chars, may have leading zeros)
-    // 2) Without commas: "START:nSSEE" (n = 1 char, SS = 2 chars, EE = 2 chars)
+void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, uint8_t& stop_idx, float &calcStartFreq, float &calcEndFreq) {
+    // Expect strict format (commas present):
+    // BASELINE_START:n,SS,EE,CCCCCC,CCCCCC,LLL,MMM,HHH
+    // n = 1 char (1-4)
+    // SS = start index (2 chars)
+    // EE = end index (2 chars)
+    // CCCCC C = calc start/end freq in Hz (6 chars each)
+    // LLL,MMM,HHH = risk limits as integer percentages (3 chars each, e.g. "005" -> 5%)
     String cmdStr(cmd);
 
     // defaults
@@ -169,7 +174,7 @@ void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, u
     stop_idx = 0;
 
     if (!cmdStr.startsWith(BLE_CMD_BASELINE)) {
-        Serial.println("[BLE] ERROR: Not a START command");
+        Serial.println("[BLE] ERROR: Not a BASELINE_START command");
         num_duts = 0;
         return;
     }
@@ -182,29 +187,36 @@ void parseStartCommand(const char* cmd, uint8_t& num_duts, uint8_t& start_idx, u
 
     String params = cmdStr.substring(colonIndex + 1);
     params.trim();
-    params.replace(",", "");
-    if (params.length() != 5) {
-        Serial.println("[BLE] WARNING: START command has empty parameters, using defaults (4,0,0)");
-        return;
+
+    // Split into 8 comma-separated fields (assume format is exact)
+    String parts[8];
+    int from = 0;
+    for (int i = 0; i < 7; ++i) {
+        int idx = params.indexOf(',', from);
+        parts[i] = params.substring(from, idx);
+        from = idx + 1;
     }
+    parts[7] = params.substring(from);
 
-    int n = params.charAt(0) - '0';
-    if (n < 1 || n > 4) {
-        Serial.printf("[BLE] ERROR: Invalid DUT count %d (must be 1-4)\n", n);
-        num_duts = 0;
-        return;
-    }
-    num_duts = (uint8_t)n;
+    // Assign directly (no legacy handling, minimal parsing as requested)
+    num_duts   = (uint8_t)parts[0].toInt();
+    start_idx  = (uint8_t)parts[1].toInt();
+    stop_idx   = (uint8_t)parts[2].toInt();
 
-    String sStart = params.substring(1, 3);
-    start_idx = (uint8_t)sStart.toInt();
-    
-    
-    String sStop = params.substring(3, 5);
-    stop_idx = (uint8_t)sStop.toInt();
+    // calculation frequency bounds (Hz)
+    calcStartFreq = (float)parts[3].toInt();
+    calcEndFreq   = (float)parts[4].toInt();
 
-    Serial.printf("[BLE] Parsed START command: %d DUT%s, start=%u, stop=%u\n",
-                  num_duts, num_duts > 1 ? "s" : "", start_idx, stop_idx);
+    // risk cutoffs provided as integer percent strings -> convert to fraction
+    lowRiskCutoff    = (float)parts[5].toFloat();
+    mediumRiskCutoff = (float)parts[6].toFloat();
+    highRiskCutoff   = (float)parts[7].toFloat();
+
+    Serial.printf("[BLE] Parsed BASELINE_START -> %d DUT(s), start=%u, stop=%u\n",
+                  num_duts, start_idx, stop_idx);
+    Serial.printf("[BLE] CalcFreqs: %.0f - %.0f Hz, Limits: L=%.3f M=%.3f H=%.3f\n",
+                  calcStartFreq, calcEndFreq,
+                  lowRiskCutoff, mediumRiskCutoff, highRiskCutoff);
 }
 
 /*=========================DATA TRANSMISSION=========================*/

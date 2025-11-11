@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-// Color scheme matching BioPal WebUI
+// Color scheme matching BioPal WebUI using RGB565 colours
 // Gradient colors (purple-blue to purple)
 #define COLOR_PRIMARY_START     0x63FD  // #667eea - Purple-blue
 #define COLOR_PRIMARY_END       0x7254  // #764ba2 - Purple
@@ -17,6 +17,12 @@
 #define COLOR_BG_MEDIUM         0xE71C  // #e9ecef - Light gray
 #define COLOR_TEXT_DARK         0x3186  // #333333 - Dark gray
 #define COLOR_TEXT_GRAY         0x7BEF  // #6c757d - Medium gray
+
+// Colors for specific risk levels
+#define COLOR_GREEN              0x3eec  // #3fff6cff  Green
+#define COLOR_YELLOW             0xFFE0  // #fffd20ff  Yellow
+#define COLOR_ORANGE             0xFD20  // #ff9f00ff  Orange
+#define COLOR_RED                0xF800  // #ff0000ff  Red
 
 // Standard colors
 #define COLOR_WHITE             TFT_WHITE

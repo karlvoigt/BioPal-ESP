@@ -5,7 +5,7 @@
 
 // System configuration
 #define MAX_DUT_COUNT 4        // Number of DUTs (Device Under Test)
-#define MAX_FREQUENCIES 50     // Maximum number of frequency points per sweep
+#define MAX_FREQUENCIES 38     // Maximum number of frequency points per sweep
 
 // Measurement point from STM32
 struct MeasurementPoint {
@@ -29,6 +29,23 @@ struct ImpedancePoint {
 
     ImpedancePoint() : freq_hz(0), Z_magnitude(0.0), Z_phase(0.0),pga_gain(0),tia_gain(false), valid(false) {}
 };
+
+// Risk level for qualitative results
+enum RiskLevel {
+    RISK_NONE,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_ERROR
+};
+
+// Risk lvel cutoffs for qualitative analysis
+extern float lowRiskCutoff;  
+extern float mediumRiskCutoff;
+extern float highRiskCutoff;
+
+extern RiskLevel riskLevels[MAX_DUT_COUNT];
+extern float riskPercentages[MAX_DUT_COUNT];
 
 extern bool measurementInProgress;
 extern bool baselineMeasurementDone;

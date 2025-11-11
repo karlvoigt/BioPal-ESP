@@ -25,6 +25,8 @@ bool finalMeasurementDone = false;
 uint8_t startIDX = 0;
 uint8_t endIDX = 37;
 uint8_t num_duts = 1;
+float calcStartFreq = 125;
+float calcEndFreq = 100000;
 // Splash screen timer (2 seconds)
 unsigned long splashStartTime;
 
@@ -83,6 +85,9 @@ void taskDataProcessor(void* parameter) {
 
             // Store in global impedance array
             int freqIndex = frequencyCount[dutIndex];
+            // Print frequency index
+            Serial.printf("Storing data for DUT %d at freq index %d (freq=%lu Hz)\n",
+                          dutIndex + 1, freqIndex, impedance.freq_hz);
             if (freqIndex < MAX_FREQUENCIES) {
                 if (baselineMeasurementDone) {
                     measurementImpedanceData[dutIndex][freqIndex] = impedance;
@@ -122,7 +127,7 @@ void processBLECommands() {
         baselineMeasurementDone = false;
         finalMeasurementDone = false;
         
-        parseStartCommand(cmdBuffer, num_duts, startIDX, endIDX);
+        parseStartCommand(cmdBuffer, num_duts, startIDX, endIDX, calcStartFreq, calcEndFreq);
 
         if (num_duts == 0) {
             sendBLEError("Invalid Sensor count (must be 1-4)");
@@ -278,6 +283,10 @@ void taskGUI(void* parameter) {
                 } else {
                     finalMeasurementDone = true;
                     Serial.println("Final measurement completed");
+                    // Calculate qualitative results
+                    for (uint8_t i = 0; i < num_duts; i++) {
+                        calculateRiskLevel(i, calcStartFreq, calcEndFreq);
+                    }
                     setGUIState(GUI_RESULTS);
                 }
             }

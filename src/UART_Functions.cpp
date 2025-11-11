@@ -31,6 +31,8 @@ static UARTRxContext rxContext;
 static volatile bool ackReceived = false;
 static volatile uint8_t ackCmdType = 0;
 
+extern int frequencyCount[MAX_DUT_COUNT];
+
 /*=========================CIRCULAR BUFFER HELPERS=========================*/
 
 // Check if buffer has data available
@@ -162,6 +164,10 @@ bool sendStartCommand() {
 }
 
 bool sendStartCommand(uint8_t num_duts, uint8_t startIDX, uint8_t endIDX) {
+    // Clear frequency counts
+    for (int i = 0; i < MAX_DUT_COUNT; i++) {
+        frequencyCount[i] = 0;
+    }
     Serial.printf("Sending START command to STM32 (%d DUT%s)\n", num_duts, num_duts > 1 ? "s" : "");
     totalExpectedDUTs = num_duts;
     completedDUTCount = 0;  // Reset counter
